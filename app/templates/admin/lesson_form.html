@@ -1,0 +1,345 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% set course = module.course %}
+{% set is_new = lesson is none %}
+{% set langs = [('ru', 'Русский', 'RU'), ('kk', 'Қазақша', 'KK'), ('en', 'English', 'EN')] %}
+{% set next_position = (module.lessons | length) + 1 %}
+
+{% block title %}{{ lesson.tr('title') if lesson else 'Новый урок' }}{% endblock %}
+{% block heading %}{{ lesson.tr('title') if lesson else 'Новый урок' }}{% endblock %}
+
+{# ══════════════════ ПУТЬ: КУРС → МОДУЛЬ ══════════════════ #}
+{% block subheading %}
+  <nav class="flex items-center gap-1.5 text-[11px] mt-0.5 flex-wrap" aria-label="Расположение урока">
+    <a href="{{ url_for('admin.courses') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Курсы</a>
+    {% if course %}
+      <i data-lucide="chevron-right" class="w-3 h-3 flex-none" style="color:var(--ink-4)"></i>
+      <a href="{{ url_for('admin.course_edit', course_id=course.id) }}"
+         class="font-semibold hover:text-[var(--brand)] transition-colors truncate max-w-[14rem]"
+         style="color:var(--ink-2)">{{ course.tr('title') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3 flex-none" style="color:var(--ink-4)"></i>
+      <a href="{{ url_for('admin.course_edit', course_id=course.id) }}#modules"
+         class="font-semibold hover:text-[var(--brand)] transition-colors truncate max-w-[14rem]"
+         style="color:var(--ink-2)">{{ module.tr('title') }}</a>
+    {% else %}
+      <i data-lucide="chevron-right" class="w-3 h-3 flex-none" style="color:var(--ink-4)"></i>
+      <span class="ink-muted truncate max-w-[14rem]">{{ module.tr('title') }}</span>
+    {% endif %}
+  </nav>
+{% endblock %}
+
+{# ══════════════════ ДЕЙСТВИЯ В ШАПКЕ ══════════════════ #}
+{% block actions %}
+  {% if lesson and course %}
+    <a href="{{ url_for('learn.lesson', slug=course.slug, lesson_id=lesson.id) }}"
+       target="_blank" rel="noopener" class="btn btn-ghost btn-sm"
+       title="Открыть урок на сайте в новой вкладке">
+      <i data-lucide="external-link"></i><span class="hidden sm:inline">Посмотреть на сайте</span>
+    </a>
+  {% endif %}
+
+  <button type="submit" form="lesson-form" class="btn btn-primary btn-sm">
+    <i data-lucide="save"></i><span class="hidden sm:inline">Сохранить</span>
+  </button>
+
+  {% if lesson %}
+    <form method="post" action="{{ url_for('admin.lesson_delete', lesson_id=lesson.id) }}"
+          data-confirm="Удалить урок «{{ lesson.tr('title') }}»? Вместе с ним пропадёт и прогресс студентов по этому уроку. Отменить не получится.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit"
+              class="grid place-items-center w-9 h-9 rounded-xl border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+              style="border-color:var(--line);color:var(--ink-3)"
+              aria-label="Удалить урок «{{ lesson.tr('title') }}»" title="Удалить урок">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<form id="lesson-form" method="post" enctype="multipart/form-data"
+      action="{% if lesson %}{{ url_for('admin.lesson_edit', lesson_id=lesson.id) }}{% else %}{{ url_for('admin.lesson_edit', module_id=module.id) }}{% endif %}"
+      class="grid lg:grid-cols-12 gap-6 items-start">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# ══════════════════ ЛЕВАЯ КОЛОНКА: СОДЕРЖАНИЕ ══════════════════ #}
+  <div class="lg:col-span-8 min-w-0 space-y-6">
+
+    <div class="card p-5 sm:p-6" data-tabs="lang">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base flex items-center gap-2">
+            <i data-lucide="languages" class="w-4 h-4" style="color:var(--brand)"></i>Содержимое урока
+          </h2>
+          <p class="text-xs ink-muted mt-0.5">
+            Русский обязателен — он подставляется, если перевода нет. Казахский и английский можно добавить позже.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-1.5 p-1 rounded-xl flex-none" style="background:var(--surface-2)" role="tablist">
+          {% for code, label, short in langs %}
+            {% set filled = (lesson | attr('title_' ~ code)) if lesson else '' %}
+            <button type="button" class="chip !py-1.5 !px-3 !text-xs" data-tab="{{ code }}"
+                    aria-label="Вкладка языка: {{ label }}">
+              {{ label }}
+              {% if code != 'ru' %}
+                <span class="w-1.5 h-1.5 rounded-full flex-none"
+                      style="background:{{ '#10B981' if filled else 'var(--ink-4)' }}"
+                      title="{{ 'Перевод заполнен' if filled else 'Перевода пока нет' }}"></span>
+              {% endif %}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% for code, label, short in langs %}
+        {% set title_value = (lesson | attr('title_' ~ code)) if lesson else '' %}
+        {% set content_value = (lesson | attr('content_' ~ code)) if lesson else '' %}
+        {% set tip_value = (lesson | attr('tip_' ~ code)) if lesson else '' %}
+
+        <div data-panel="{{ code }}" class="{% if code != 'ru' %}hidden {% endif %}space-y-5">
+
+          {# ── название ── #}
+          <div>
+            <label class="label" for="title-{{ code }}">
+              Название урока
+              {% if code == 'ru' %}
+                <span style="color:var(--brand)" aria-hidden="true">*</span>
+                <span class="sr-only">обязательное поле</span>
+              {% else %}
+                <span class="ink-muted font-normal">({{ label }})</span>
+              {% endif %}
+            </label>
+            <input type="text" id="title-{{ code }}" name="title_{{ code }}"
+                   value="{{ title_value }}" class="field" maxlength="200"
+                   {% if code == 'ru' %}required{% endif %}
+                   placeholder="{% if code == 'ru' %}Например, «Как войти в личный кабинет»{% elif code == 'kk' %}Сабақтың атауы{% else %}Lesson title{% endif %}"
+                   autocomplete="off">
+            {% if code == 'ru' %}
+              <p class="help">Из русского названия автоматически формируется адрес урока.</p>
+            {% endif %}
+          </div>
+
+          {# ── содержимое (Markdown) ── #}
+          <div>
+            <label class="label" for="content-{{ code }}">Содержимое урока</label>
+            <textarea id="content-{{ code }}" name="content_{{ code }}"
+                      data-editor data-editor-height="420px"
+                      placeholder="{% if code == 'ru' %}Расскажите по шагам, что нужно сделать. Поддерживается Markdown.{% else %}Markdown ({{ label }}){% endif %}"
+                      rows="14" class="field">{{ content_value }}</textarea>
+            <p class="help flex items-start gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+              <span>Разбивайте текст на короткие шаги — так студенту проще повторять действия за вами.</span>
+            </p>
+          </div>
+
+          {# ── совет ── #}
+          <div>
+            <label class="label" for="tip-{{ code }}">Совет к уроку</label>
+            <textarea id="tip-{{ code }}" name="tip_{{ code }}" rows="3" class="field"
+                      placeholder="{% if code == 'ru' %}Короткая подсказка, которая покажется в рамке под уроком{% else %}Подсказка ({{ label }}){% endif %}">{{ tip_value }}</textarea>
+            <p class="help">Необязательно. Выводится отдельным блоком в конце урока — хорошо подходит для предупреждений и лайфхаков.</p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ══════════════════ ПРАВАЯ КОЛОНКА: ПАРАМЕТРЫ ══════════════════ #}
+  <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-[4.75rem] lg:max-h-[calc(100vh-6.5rem)] lg:overflow-y-auto lg:pr-1">
+
+    {# ── сохранение ── #}
+    <div class="card p-5">
+      <button type="submit" class="btn btn-primary btn-block">
+        <i data-lucide="save"></i>{{ 'Создать урок' if is_new else 'Сохранить' }}
+      </button>
+      <p class="help text-center">
+        {% if is_new %}
+          Урок появится в модуле «{{ module.tr('title') }}» сразу после сохранения.
+        {% else %}
+          Последнее изменение: {{ lesson.updated_at | dt }}
+        {% endif %}
+      </p>
+
+      {% if course %}
+        <a href="{{ url_for('admin.course_edit', course_id=course.id) }}#modules"
+           class="btn btn-ghost btn-sm btn-block mt-3">
+          <i data-lucide="arrow-left"></i>К программе курса
+        </a>
+      {% endif %}
+    </div>
+
+    {# ── параметры ── #}
+    <div class="card p-5">
+      <h3 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4" style="color:var(--brand)"></i>Параметры
+      </h3>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label" for="duration_min">Длительность</label>
+          <div class="relative">
+            <input type="number" id="duration_min" name="duration_min" min="1" max="600" step="1"
+                   value="{{ lesson.duration_min if lesson else 3 }}" class="field !pr-12">
+            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                  style="color:var(--ink-4)">мин</span>
+          </div>
+          <p class="help">Показывается студенту.</p>
+        </div>
+
+        <div>
+          <label class="label" for="position">Порядок</label>
+          <input type="number" id="position" name="position" min="1" step="1"
+                 value="{{ lesson.position if lesson else next_position }}" class="field">
+          <p class="help">Меньше — выше в модуле.</p>
+        </div>
+      </div>
+
+      {% if lesson %}
+        <div class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+          <span class="label">Адрес урока</span>
+          <p class="text-[11px] font-mono break-all px-3 py-2 rounded-lg"
+             style="background:var(--surface-2);color:var(--ink-3)">/{{ lesson.slug }}</p>
+          <p class="help">Формируется из русского названия автоматически.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ── медиа ── #}
+    <div class="card p-5" x-data="{ media: '{{ lesson.media_type if lesson else 'none' }}' }">
+      <h3 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="image-play" class="w-4 h-4" style="color:var(--brand)"></i>Медиа урока
+      </h3>
+
+      <div>
+        <label class="label" for="media_type">Тип материала</label>
+        <select id="media_type" name="media_type" class="field" x-model="media">
+          <option value="none" {% if not lesson or lesson.media_type == 'none' %}selected{% endif %}>Без медиа</option>
+          <option value="image" {% if lesson and lesson.media_type == 'image' %}selected{% endif %}>Изображение</option>
+          <option value="video" {% if lesson and lesson.media_type == 'video' %}selected{% endif %}>Видео</option>
+          <option value="embed" {% if lesson and lesson.media_type == 'embed' %}selected{% endif %}>Встраиваемый блок</option>
+        </select>
+      </div>
+
+      <div x-show="media !== 'none'" x-cloak class="mt-4">
+        <label class="label" for="media_url">Ссылка на материал</label>
+        <input type="text" id="media_url" name="media_url" class="field"
+               value="{{ lesson.media_url if lesson else '' }}" maxlength="500"
+               placeholder="/static/media/screen.png или https://…" autocomplete="off">
+        <p class="help" x-show="media === 'image'" x-cloak>Прямая ссылка на картинку или путь к загруженному файлу.</p>
+        <p class="help" x-show="media === 'video' || media === 'embed'" x-cloak>
+          Нужен именно адрес для встраивания — например, у YouTube это ссылка вида /embed/. Обычная ссылка на страницу не откроется.
+        </p>
+      </div>
+
+      <div class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+        <label class="label" for="media_file">Загрузить изображение</label>
+        <input type="file" id="media_file" name="media_file" accept="image/*"
+               data-preview-for="#media-preview"
+               class="field !py-2 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:cursor-pointer file:bg-[var(--brand-50)] file:text-[var(--brand-700)]">
+        <p class="help">JPG, PNG, WebP или SVG. После загрузки тип материала станет «Изображение», а ссылка подставится сама.</p>
+
+        <span class="label mt-4">Предпросмотр</span>
+        <div id="media-preview"
+             class="grid place-items-center w-full h-40 rounded-xl border border-dashed overflow-hidden"
+             style="border-color:var(--line-strong);background:var(--surface-2)">
+          {% if lesson and lesson.media_type == 'image' and lesson.media_url %}
+            <img src="{{ lesson.media_url }}" alt="Изображение урока «{{ lesson.tr('title') }}»"
+                 class="w-full h-full object-contain">
+          {% else %}
+            <span class="text-center px-4">
+              <i data-lucide="image-off" class="w-6 h-6 mx-auto mb-1.5" style="color:var(--ink-4)"></i>
+              <span class="block text-[11px] ink-muted">Изображение пока не выбрано</span>
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── шпаргалка по Markdown ── #}
+    <div class="card p-5" style="background:var(--brand-50);border-color:color-mix(in srgb,var(--brand) 18%,transparent)">
+      <h3 class="font-display font-bold text-sm mb-1 flex items-center gap-2" style="color:var(--brand-700)">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>Оформление текста
+      </h3>
+      <p class="text-[11px] mb-3" style="color:var(--ink-3)">
+        Содержимое урока понимает Markdown. Вот всё, что нужно на практике:
+      </p>
+
+      <dl class="space-y-2.5">
+        {% set cheats = [
+          ('## Вход в систему', 'Двойная решётка и пробел — заголовок раздела внутри урока.'),
+          ('**важно**', 'Двойные звёздочки с двух сторон — жирный текст для главного.'),
+          ('1. Откройте сайт', 'Цифра с точкой в начале строки — нумерованный список шагов.'),
+          ('- пункт списка', 'Дефис с пробелом — обычный маркированный список.'),
+          ('> Обратите внимание', 'Знак «больше» в начале строки — выделенная цитата.'),
+          ('[текст](https://ccu.edu.kz)', 'Текст в квадратных скобках, адрес — в круглых.'),
+        ] %}
+        {% for sample, hint in cheats %}
+          <div>
+            <dt><code class="block text-[11px] font-mono px-2.5 py-1.5 rounded-lg break-all"
+                      style="background:var(--surface);color:var(--brand-700);border:1px solid color-mix(in srgb,var(--brand) 16%,transparent)">{{ sample }}</code></dt>
+            <dd class="text-[11px] mt-1" style="color:var(--ink-3)">{{ hint }}</dd>
+          </div>
+        {% endfor %}
+      </dl>
+    </div>
+
+    {# ── соседние уроки модуля ── #}
+    <div class="card p-5">
+      <h3 class="font-display font-bold text-sm mb-1 flex items-center gap-2">
+        <i data-lucide="list-ordered" class="w-4 h-4" style="color:var(--brand)"></i>Уроки модуля
+      </h3>
+      <p class="text-[11px] ink-muted mb-3">{{ module.tr('title') }}</p>
+
+      {% if module.lessons %}
+        <div class="space-y-1">
+          {% for item in module.lessons %}
+            {% set is_current = lesson and item.id == lesson.id %}
+            <a href="{{ url_for('admin.lesson_edit', lesson_id=item.id) }}"
+               class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] leading-snug transition-colors
+                      {% if is_current %}font-bold{% else %}hover:bg-[var(--brand-50)]{% endif %}"
+               {% if is_current %}style="background:var(--brand-50);color:var(--brand-700)" aria-current="page"{% endif %}>
+              <span class="grid place-items-center w-5 h-5 rounded-md text-[10px] font-bold flex-none"
+                    style="background:var(--surface-2);color:var(--ink-3)">{{ loop.index }}</span>
+              <span class="flex-1 truncate">{{ item.tr('title') }}</span>
+              <span class="text-[10px] flex-none tabular-nums" style="color:var(--ink-4)">{{ item.duration_min }} мин</span>
+            </a>
+          {% endfor %}
+        </div>
+        {% if lesson %}
+          <a href="{{ url_for('admin.lesson_edit', module_id=module.id) }}" class="btn btn-ghost btn-sm btn-block mt-3">
+            <i data-lucide="plus"></i>Ещё урок
+          </a>
+        {% endif %}
+      {% else %}
+        <div class="text-center py-6">
+          <span class="grid place-items-center w-11 h-11 rounded-xl mx-auto mb-3"
+                style="background:var(--surface-2);color:var(--ink-4)">
+            <i data-lucide="book-open" class="w-5 h-5"></i>
+          </span>
+          <p class="text-xs font-semibold">Пока пусто</p>
+          <p class="text-[11px] ink-muted mt-1 px-2">
+            Это первый урок модуля. Заполните название и содержимое — и он появится в списке.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </aside>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Markdown-редактор внутри скрытой языковой вкладки нужно пересчитать,
+     иначе CodeMirror отрисуется нулевой высоты. */
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('[data-tab]');
+    if (!button) return;
+    setTimeout(function () {
+      document.querySelectorAll('[data-panel]:not(.hidden) .CodeMirror').forEach(function (node) {
+        if (node.CodeMirror) node.CodeMirror.refresh();
+      });
+    }, 40);
+  });
+</script>
+{% endblock %}

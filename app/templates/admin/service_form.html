@@ -1,0 +1,739 @@
+{% extends 'layouts/admin_base.html' %}
+
+{# ────────────────────────────────────────────────────────────────────────────
+   Форма создания и редактирования сервиса.
+   Контекст: service (Service или None), categories (список Category).
+   В полях ввода намеренно используются прямые поля _ru/_kk/_en — иначе
+   отредактировать каждый язык отдельно невозможно. Для вывода готового
+   текста (списки FAQ, подписи, категории) применяется .tr('поле').
+   ──────────────────────────────────────────────────────────────────────── #}
+
+{% block title %}{{ 'Редактирование сервиса' if service else 'Новый сервис' }}{% endblock %}
+
+{% block heading %}{{ service.tr('name') if service else 'Новый сервис' }}{% endblock %}
+
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">
+    {% if service %}
+      Карточка сервиса в каталоге · <span class="font-mono">/services/{{ service.slug }}</span>
+    {% else %}
+      Заполните название и ссылку — остальное можно дополнить позже
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.services') }}" class="btn btn-ghost btn-sm hidden sm:inline-flex">
+    <i data-lucide="arrow-left"></i><span class="hidden lg:inline">К списку</span>
+  </a>
+
+  {% if service %}
+    <a href="{{ url_for('public.service_detail', slug=service.slug) }}" target="_blank" rel="noopener"
+       class="btn btn-ghost btn-sm hidden sm:inline-flex" aria-label="Открыть страницу сервиса на сайте">
+      <i data-lucide="external-link"></i><span class="hidden lg:inline">На сайте</span>
+    </a>
+
+    <form method="post" action="{{ url_for('admin.service_delete', service_id=service.id) }}"
+          data-confirm="Удалить сервис «{{ service.name_ru }}» со всеми скриншотами, вопросами и курсом? Отменить это будет нельзя.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-sm" aria-label="Удалить сервис">
+        <i data-lucide="trash-2" style="color:#E11D48"></i>
+      </button>
+    </form>
+  {% endif %}
+
+  <button type="submit" form="service-form" class="btn btn-primary btn-sm">
+    <i data-lucide="save"></i><span class="hidden sm:inline">Сохранить</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set langs = [('ru', 'Русский', 'RU'), ('kk', 'Қазақша', 'KK'), ('en', 'English', 'EN')] %}
+{% set statuses = [
+  ('active', 'Работает', 'emerald'),
+  ('beta', 'Бета-версия', 'amber'),
+  ('soon', 'Скоро запустим', 'sky'),
+  ('maintenance', 'Технические работы', 'rose'),
+] %}
+{% set access_levels = [
+  ('all', 'Всем — сервис открыт для любого посетителя'),
+  ('students', 'Студентам'),
+  ('teachers', 'Преподавателям'),
+  ('staff', 'Сотрудникам колледжа'),
+] %}
+{% set color_value = (service.color if service else '') or '#EB5A40' %}
+{% set accent_value = (service.accent if service else '') or '#F9A03F' %}
+
+{# ══════════════════ ГЛАВНАЯ ФОРМА ══════════════════ #}
+<form id="service-form" method="post" enctype="multipart/form-data"
+      action="{{ url_for('admin.service_edit', service_id=service.id) if service else url_for('admin.service_edit') }}"
+      class="grid lg:grid-cols-12 gap-6 items-start">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# ─────────── ОСНОВНАЯ КОЛОНКА ─────────── #}
+  <div class="lg:col-span-8 space-y-6 min-w-0">
+
+    {# Адрес и категория #}
+    <section class="card p-6">
+      <div class="flex items-center gap-2.5 mb-5">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="link" class="w-4 h-4"></i>
+        </span>
+        <div>
+          <h2 class="font-display font-bold text-base leading-tight">Адрес и категория</h2>
+          <p class="text-xs ink-muted">Как сервис найдут в каталоге</p>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="field-slug">Адрес страницы (slug)</label>
+          <input class="field font-mono !text-sm" type="text" id="field-slug" name="slug" data-slugify
+                 value="{{ service.slug if service else '' }}"
+                 placeholder="platonus" autocomplete="off" spellcheck="false">
+          <p class="help">Латиницей, без пробелов. Оставьте пустым — соберём из названия.</p>
+        </div>
+
+        <div>
+          <label class="label" for="field-category">Категория</label>
+          <select class="field" id="field-category" name="category_id">
+            <option value="">Без категории</option>
+            {% for cat in categories %}
+              <option value="{{ cat.id }}"
+                {% if service and service.category_id == cat.id %}selected{% endif %}>{{ cat.tr('name') }}</option>
+            {% endfor %}
+          </select>
+          {% if not categories %}
+            <p class="help">
+              Категорий пока нет —
+              <a href="{{ url_for('admin.categories') }}" class="font-semibold" style="color:var(--brand)">создайте первую</a>.
+            </p>
+          {% else %}
+            <p class="help">Определяет раздел каталога и фильтры на сайте.</p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {# Языковые вкладки #}
+    <section class="card p-6" data-tabs="lang">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div class="flex items-center gap-2.5">
+          <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="languages" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h2 class="font-display font-bold text-base leading-tight">Содержимое карточки</h2>
+            <p class="text-xs ink-muted">Русская версия обязательна, остальные подставятся автоматически</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+          {% for code, title, short in langs %}
+            <button type="button" class="chip !px-3.5 !py-1.5 !text-xs" data-tab="{{ code }}"
+                    aria-pressed="false" aria-label="{{ title }}" title="{{ title }}">{{ short }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% for code, title, short in langs %}
+        <div data-panel="{{ code }}" class="space-y-4">
+          <div>
+            <label class="label" for="field-name-{{ code }}">
+              Название ({{ title }})
+              {% if code == 'ru' %}
+                <span class="badge badge-brand !px-1.5 !py-0.5 !text-[10px] ml-1">обязательно</span>
+              {% endif %}
+            </label>
+            <input class="field font-display !font-bold" type="text"
+                   id="field-name-{{ code }}" name="name_{{ code }}"
+                   value="{{ (service | attr('name_' ~ code)) or '' if service else '' }}"
+                   placeholder="{{ 'Platonus' if code != 'ru' else 'Платонус' }}"
+                   {% if code == 'ru' %}data-slug-source="#field-slug" aria-required="true"{% endif %}>
+          </div>
+
+          <div>
+            <label class="label" for="field-tagline-{{ code }}">Короткое описание</label>
+            <input class="field" type="text" id="field-tagline-{{ code }}" name="tagline_{{ code }}"
+                   maxlength="300" data-maxlen="300"
+                   value="{{ (service | attr('tagline_' ~ code)) or '' if service else '' }}"
+                   placeholder="Одна строка, которая появится на карточке в каталоге">
+          </div>
+
+          <div>
+            <label class="label" for="field-description-{{ code }}">Полное описание</label>
+            <textarea class="field" id="field-description-{{ code }}" name="description_{{ code }}"
+                      data-editor data-editor-height="240px"
+                      placeholder="Расскажите, что это за сервис и как им пользоваться. Поддерживается Markdown.">{{ (service | attr('description_' ~ code)) or '' if service else '' }}</textarea>
+            <p class="help">Markdown: **жирный**, списки, ссылки, таблицы.</p>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="field-benefits-{{ code }}">Чем полезен</label>
+              <textarea class="field !min-h-[8rem]" id="field-benefits-{{ code }}" name="benefits_{{ code }}"
+                        placeholder="Расписание всегда под рукой&#10;Оценки обновляются в реальном времени&#10;Заявки без похода в деканат">{{ (service | attr('benefits_' ~ code)) or '' if service else '' }}</textarea>
+              <p class="help">По одному пункту на строку — покажем списком.</p>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="label" for="field-audience-{{ code }}">Для кого</label>
+                <input class="field" type="text" id="field-audience-{{ code }}" name="audience_{{ code }}"
+                       maxlength="300"
+                       value="{{ (service | attr('audience_' ~ code)) or '' if service else '' }}"
+                       placeholder="Студенты и преподаватели">
+              </div>
+              <div>
+                <label class="label" for="field-url-label-{{ code }}">Надпись на кнопке</label>
+                <input class="field" type="text" id="field-url-label-{{ code }}" name="url_label_{{ code }}"
+                       maxlength="120"
+                       value="{{ (service | attr('url_label_' ~ code)) or '' if service else '' }}"
+                       placeholder="{{ 'Перейти в сервис' if code == 'ru' else 'Open the service' }}">
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+
+    {# Ссылки и поддержка #}
+    <section class="card p-6">
+      <div class="flex items-center gap-2.5 mb-5">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i>
+        </span>
+        <div>
+          <h2 class="font-display font-bold text-base leading-tight">Куда ведёт сервис</h2>
+          <p class="text-xs ink-muted">Основная ссылка, мобильные приложения и контакт поддержки</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="field-url">Ссылка на сервис</label>
+          <input class="field" type="url" id="field-url" name="url" inputmode="url"
+                 value="{{ service.url if service else '' }}" placeholder="https://platonus.ccu.edu.kz">
+          <p class="help">Полный адрес вместе с https://</p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="field-ios">Приложение для iOS</label>
+            <input class="field" type="url" id="field-ios" name="mobile_ios_url" inputmode="url"
+                   value="{{ service.mobile_ios_url if service else '' }}" placeholder="https://apps.apple.com/…">
+          </div>
+          <div>
+            <label class="label" for="field-android">Приложение для Android</label>
+            <input class="field" type="url" id="field-android" name="mobile_android_url" inputmode="url"
+                   value="{{ service.mobile_android_url if service else '' }}" placeholder="https://play.google.com/…">
+          </div>
+        </div>
+
+        <div>
+          <label class="label" for="field-support">Куда обращаться за помощью</label>
+          <input class="field" type="text" id="field-support" name="support_contact" maxlength="300"
+                 value="{{ service.support_contact if service else '' }}"
+                 placeholder="support@ccu.edu.kz или +7 (7292) 00-00-00">
+        </div>
+
+        <div>
+          <label class="label" for="field-tags">Метки</label>
+          <input class="field" type="text" id="field-tags" name="tags"
+                 value="{{ service.tags | map(attribute='name_ru') | join(', ') if service else '' }}"
+                 placeholder="расписание, оценки, деканат">
+          <p class="help">Через запятую, до 12 штук. Помогают поиску по каталогу.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  {# ─────────── БОКОВАЯ КОЛОНКА ─────────── #}
+  <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+
+    {# Публикация #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="rocket" class="w-4 h-4" style="color:var(--brand)"></i>Публикация
+      </h2>
+
+      <button type="submit" class="btn btn-primary btn-block">
+        <i data-lucide="save"></i>{{ 'Сохранить' if service else 'Создать сервис' }}
+      </button>
+
+      <div class="mt-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <label class="text-sm font-semibold leading-tight" for="field-published">
+            Опубликован
+            <span class="block text-[11px] font-normal ink-muted">Виден в каталоге на сайте</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="field-published" name="is_published" value="1"
+                   {% if not service or service.is_published %}checked{% endif %}>
+            <span></span>
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-3 border-t" style="border-color:var(--line)">
+          <label class="text-sm font-semibold leading-tight" for="field-featured">
+            Рекомендуемый
+            <span class="block text-[11px] font-normal ink-muted">Попадёт в подборку на главной</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="field-featured" name="is_featured" value="1"
+                   {% if service and service.is_featured %}checked{% endif %}>
+            <span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t" style="border-color:var(--line)">
+        <div>
+          <label class="label" for="field-status">Состояние</label>
+          <select class="field !py-2 !text-sm" id="field-status" name="status">
+            {% for value, label, tone in statuses %}
+              <option value="{{ value }}"
+                {% if (service.status if service else 'active') == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="label" for="field-position">Порядок</label>
+          <input class="field !py-2 !text-sm" type="number" id="field-position" name="position"
+                 min="0" max="9999" step="1" value="{{ (service.position if service else 0) or 0 }}">
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="label" for="field-access">Кому показывать</label>
+        <select class="field !py-2 !text-sm" id="field-access" name="access_level">
+          {% for value, label in access_levels %}
+            <option value="{{ value }}"
+              {% if (service.access_level if service else 'all') == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="help">Подсказка для посетителей о целевой аудитории.</p>
+      </div>
+
+      {% if service %}
+        <div class="mt-4 pt-4 border-t space-y-2" style="border-color:var(--line)">
+          <a href="{{ url_for('public.service_detail', slug=service.slug) }}" target="_blank" rel="noopener"
+             class="btn btn-soft btn-sm btn-block">
+            <i data-lucide="external-link"></i>Открыть на сайте
+          </a>
+          <div class="flex items-center justify-between text-[11px] ink-muted">
+            <span class="inline-flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5"></i>{{ service.views or 0 }} просмотров</span>
+            <span class="inline-flex items-center gap-1"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>{{ service.clicks or 0 }} переходов</span>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# Оформление #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="palette" class="w-4 h-4" style="color:var(--brand)"></i>Оформление
+      </h2>
+
+      <label class="label" for="field-icon">Иконка</label>
+      <div class="flex items-center gap-3">
+        <span id="icon-preview" class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)" aria-hidden="true">
+          <i data-lucide="{{ (service.icon if service else '') or 'app-window' }}" class="w-5 h-5"></i>
+        </span>
+        <input class="field font-mono !text-sm" type="text" id="field-icon" name="icon" autocomplete="off"
+               spellcheck="false" value="{{ (service.icon if service else '') or 'app-window' }}"
+               placeholder="app-window">
+      </div>
+      <p class="help">
+        Имя иконки из набора Lucide, например <span class="font-mono">graduation-cap</span>.
+        <a href="https://lucide.dev/icons/" target="_blank" rel="noopener"
+           class="font-semibold" style="color:var(--brand)">Посмотреть все</a>
+      </p>
+      <p class="help" id="icon-missing" hidden style="color:#E11D48">
+        Такой иконки в наборе нет — проверьте написание, иначе на карточке будет пусто.
+      </p>
+
+      <div class="grid grid-cols-1 gap-4 mt-4">
+        <div>
+          <label class="label" for="field-color">Основной цвет</label>
+          <div class="flex items-center gap-2">
+            <input type="color" data-color-sync="#field-color" value="{{ color_value }}"
+                   aria-label="Палитра основного цвета"
+                   class="w-11 h-11 rounded-xl flex-none cursor-pointer p-1 border"
+                   style="border-color:var(--line-strong);background:var(--surface)">
+            <input class="field font-mono !text-sm uppercase" type="text" id="field-color" name="color"
+                   value="{{ color_value }}" pattern="#[0-9A-Fa-f]{6}" maxlength="7"
+                   placeholder="#EB5A40" spellcheck="false">
+          </div>
+        </div>
+
+        <div>
+          <label class="label" for="field-accent">Акцентный цвет</label>
+          <div class="flex items-center gap-2">
+            <input type="color" data-color-sync="#field-accent" value="{{ accent_value }}"
+                   aria-label="Палитра акцентного цвета"
+                   class="w-11 h-11 rounded-xl flex-none cursor-pointer p-1 border"
+                   style="border-color:var(--line-strong);background:var(--surface)">
+            <input class="field font-mono !text-sm uppercase" type="text" id="field-accent" name="accent"
+                   value="{{ accent_value }}" pattern="#[0-9A-Fa-f]{6}" maxlength="7"
+                   placeholder="#F9A03F" spellcheck="false">
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-xl p-4 text-center" id="color-preview"
+           style="background:linear-gradient(135deg,{{ color_value }},{{ accent_value }})">
+        <span class="text-xs font-bold text-white">Так выглядит подсветка карточки</span>
+      </div>
+    </section>
+
+    {# Изображения #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="image" class="w-4 h-4" style="color:var(--brand)"></i>Изображения
+      </h2>
+
+      <div class="space-y-5">
+        <div>
+          <label class="label" for="field-logo">Логотип</label>
+          <div id="logo-preview" class="w-full h-28 rounded-xl grid place-items-center overflow-hidden mb-2"
+               style="background:var(--surface-2);border:1px dashed var(--line-strong)">
+            {% if service and service.logo %}
+              <img src="{{ url_for('static', filename=service.logo) }}" alt="Текущий логотип сервиса"
+                   class="w-full h-full object-contain">
+            {% else %}
+              <span class="flex flex-col items-center gap-1 text-[11px] ink-muted">
+                <i data-lucide="image-plus" class="w-5 h-5"></i>Пока без логотипа
+              </span>
+            {% endif %}
+          </div>
+          <input class="field !py-2 !text-xs" type="file" id="field-logo" name="logo"
+                 accept="image/*" data-preview-for="#logo-preview">
+          {% if service and service.logo %}
+            <label class="flex items-center gap-2 mt-2 text-xs ink-muted cursor-pointer">
+              <input type="checkbox" name="remove_logo" value="1" class="w-4 h-4 rounded"
+                     style="accent-color:var(--brand)">
+              Удалить логотип при сохранении
+            </label>
+          {% endif %}
+          <p class="help">Квадратная картинка, PNG или SVG. Заменит иконку на карточке.</p>
+        </div>
+
+        <div class="pt-4 border-t" style="border-color:var(--line)">
+          <label class="label" for="field-cover">Обложка</label>
+          <div id="cover-preview" class="w-full h-28 rounded-xl grid place-items-center overflow-hidden mb-2"
+               style="background:var(--surface-2);border:1px dashed var(--line-strong)">
+            {% if service and service.cover %}
+              <img src="{{ url_for('static', filename=service.cover) }}" alt="Текущая обложка сервиса"
+                   class="w-full h-full object-cover">
+            {% else %}
+              <span class="flex flex-col items-center gap-1 text-[11px] ink-muted">
+                <i data-lucide="panel-top" class="w-5 h-5"></i>Пока без обложки
+              </span>
+            {% endif %}
+          </div>
+          <input class="field !py-2 !text-xs" type="file" id="field-cover" name="cover"
+                 accept="image/*" data-preview-for="#cover-preview">
+          {% if service and service.cover %}
+            <label class="flex items-center gap-2 mt-2 text-xs ink-muted cursor-pointer">
+              <input type="checkbox" name="remove_cover" value="1" class="w-4 h-4 rounded"
+                     style="accent-color:var(--brand)">
+              Удалить обложку при сохранении
+            </label>
+          {% endif %}
+          <p class="help">Горизонтальная картинка для шапки страницы сервиса.</p>
+        </div>
+      </div>
+    </section>
+
+    {# SEO #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="search" class="w-4 h-4" style="color:var(--brand)"></i>Поисковая выдача
+      </h2>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="field-seo-title">Заголовок для поиска</label>
+          <input class="field !py-2 !text-sm" type="text" id="field-seo-title" name="seo_title"
+                 maxlength="200" data-maxlen="200"
+                 value="{{ service.seo_title if service else '' }}"
+                 placeholder="Оставьте пустым — возьмём название сервиса">
+        </div>
+        <div>
+          <label class="label" for="field-seo-description">Описание для поиска</label>
+          <textarea class="field !min-h-[6rem] !py-2 !text-sm" id="field-seo-description" name="seo_description"
+                    maxlength="400" data-maxlen="400"
+                    placeholder="Две-три строки о сервисе — их увидят в Google и Яндексе">{{ service.seo_description if service else '' }}</textarea>
+        </div>
+      </div>
+    </section>
+  </aside>
+</form>
+{# ══════════════════ КОНЕЦ ГЛАВНОЙ ФОРМЫ ══════════════════ #}
+
+{% if service %}
+  <div class="grid lg:grid-cols-12 gap-6 items-start mt-6">
+
+    {# ─────────── СКРИНШОТЫ ─────────── #}
+    <section id="screenshots" class="lg:col-span-7 card p-6 scroll-mt-24">
+      <div class="flex items-center gap-2.5 mb-5">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="images" class="w-4 h-4"></i>
+        </span>
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base leading-tight">Скриншоты</h2>
+          <p class="text-xs ink-muted">Галерея на странице сервиса — {{ service.screenshots | length }} шт.</p>
+        </div>
+      </div>
+
+      <form method="post" enctype="multipart/form-data"
+            action="{{ url_for('admin.service_screenshots', service_id=service.id) }}"
+            class="flex flex-col sm:flex-row gap-3 mb-5">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="flex-1 min-w-0">
+          <label class="label sr-only" for="field-screenshots">Файлы скриншотов</label>
+          <input class="field !py-2 !text-xs" type="file" id="field-screenshots" name="screenshots"
+                 accept="image/*" multiple required>
+        </div>
+        <button type="submit" class="btn btn-soft btn-sm flex-none">
+          <i data-lucide="upload"></i>Загрузить
+        </button>
+      </form>
+
+      {% if service.screenshots %}
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {% for shot in service.screenshots %}
+            <figure class="rounded-xl overflow-hidden border group relative" style="border-color:var(--line)">
+              <img src="{{ url_for('static', filename=shot.image) }}"
+                   alt="{{ shot.tr('caption') or 'Скриншот сервиса ' ~ service.tr('name') }}"
+                   class="w-full h-28 object-cover" loading="lazy">
+              {% if shot.tr('caption') %}
+                <figcaption class="px-2 py-1.5 text-[11px] ink-muted truncate">{{ shot.tr('caption') }}</figcaption>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin.screenshot_delete', shot_id=shot.id) }}"
+                    class="absolute top-1.5 right-1.5"
+                    data-confirm="Удалить этот скриншот?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" aria-label="Удалить скриншот"
+                        class="w-7 h-7 grid place-items-center rounded-lg text-white transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        style="background:rgba(17,17,17,.62)">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </form>
+            </figure>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-8 rounded-xl" style="background:var(--surface-2)">
+          <span class="grid place-items-center w-12 h-12 mx-auto rounded-full mb-3"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="image-off" class="w-5 h-5"></i>
+          </span>
+          <p class="text-sm font-bold">Скриншотов пока нет</p>
+          <p class="text-xs ink-muted mt-1 max-w-xs mx-auto">
+            Добавьте пару изображений интерфейса — так студентам легче узнать сервис.
+          </p>
+        </div>
+      {% endif %}
+    </section>
+
+    {# ─────────── ВОПРОСЫ И ОТВЕТЫ ─────────── #}
+    <section id="faq" class="lg:col-span-5 card p-6 scroll-mt-24">
+      <div class="flex items-center gap-2.5 mb-5">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="circle-help" class="w-4 h-4"></i>
+        </span>
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base leading-tight">Вопросы о сервисе</h2>
+          <p class="text-xs ink-muted">Показываются аккордеоном внизу страницы</p>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('admin.service_faq_add', service_id=service.id) }}"
+            class="rounded-xl p-4 mb-5" style="background:var(--surface-2)" data-tabs="lang">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <p class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-4)">Новый вопрос</p>
+          <div class="flex items-center gap-1.5" role="group" aria-label="Язык вопроса">
+            {% for code, title, short in langs %}
+              <button type="button" class="chip !px-3 !py-1 !text-[11px]" data-tab="{{ code }}"
+                      aria-pressed="false" aria-label="{{ title }}" title="{{ title }}">{{ short }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% for code, title, short in langs %}
+          <div data-panel="{{ code }}" class="space-y-3">
+            <div>
+              <label class="label" for="field-question-{{ code }}">
+                Вопрос ({{ title }})
+                {% if code == 'ru' %}
+                  <span class="badge badge-brand !px-1.5 !py-0.5 !text-[10px] ml-1">обязательно</span>
+                {% endif %}
+              </label>
+              <input class="field !py-2 !text-sm" type="text" id="field-question-{{ code }}"
+                     name="question_{{ code }}" maxlength="400"
+                     placeholder="Как войти в сервис?">
+            </div>
+            <div>
+              <label class="label" for="field-answer-{{ code }}">Ответ ({{ title }})</label>
+              <textarea class="field !min-h-[6rem] !py-2 !text-sm" id="field-answer-{{ code }}"
+                        name="answer_{{ code }}"
+                        placeholder="Короткий понятный ответ в одну-две фразы"></textarea>
+            </div>
+          </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-soft btn-sm btn-block mt-3">
+          <i data-lucide="plus"></i>Добавить вопрос
+        </button>
+      </form>
+
+      {% if service.faqs %}
+        <ul class="space-y-2.5">
+          {% for item in service.faqs %}
+            <li class="rounded-xl border p-3.5 flex items-start gap-3" style="border-color:var(--line)">
+              <span class="grid place-items-center w-6 h-6 rounded-lg flex-none mt-0.5 text-[11px] font-bold"
+                    style="background:var(--brand-50);color:var(--brand)">{{ loop.index }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold leading-snug">{{ item.tr('question') }}</p>
+                {% if item.tr('answer') %}
+                  <p class="text-xs ink-muted mt-1 leading-relaxed">{{ item.tr('answer') | excerpt(180) }}</p>
+                {% else %}
+                  <p class="text-xs mt-1" style="color:#E11D48">Ответ пока не заполнен</p>
+                {% endif %}
+              </div>
+              <form method="post" action="{{ url_for('admin.service_faq_delete', faq_id=item.id) }}"
+                    class="flex-none" data-confirm="Удалить вопрос «{{ item.question_ru }}»?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--surface-2)]"
+                        aria-label="Удалить вопрос" style="color:var(--ink-4)">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-center py-8 rounded-xl" style="background:var(--surface-2)">
+          <span class="grid place-items-center w-12 h-12 mx-auto rounded-full mb-3"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="message-circle-question" class="w-5 h-5"></i>
+          </span>
+          <p class="text-sm font-bold">Вопросов пока нет</p>
+          <p class="text-xs ink-muted mt-1 max-w-xs mx-auto">
+            Добавьте те, что чаще всего задают в деканате, — это заметно разгрузит поддержку.
+          </p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% else %}
+  <div class="card p-5 mt-6 flex items-start gap-3.5">
+    <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+          style="background:var(--brand-50);color:var(--brand)">
+      <i data-lucide="info" class="w-4 h-4"></i>
+    </span>
+    <div>
+      <p class="text-sm font-bold">Скриншоты и вопросы появятся после сохранения</p>
+      <p class="text-xs ink-muted mt-1">
+        Сначала создайте сервис — затем на этой же странице можно будет загрузить галерею и собрать блок вопросов.
+      </p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  /* ── Живой предпросмотр иконки Lucide ─────────────────────────── */
+  var iconInput = document.getElementById('field-icon');
+  var iconBox = document.getElementById('icon-preview');
+  var iconWarn = document.getElementById('icon-missing');
+  if (iconInput && iconBox) {
+    var renderIcon = function () {
+      var name = (iconInput.value || 'app-window').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+      iconBox.innerHTML = '<i data-lucide="' + name + '" class="w-5 h-5"></i>';
+      if (window.lucide) window.lucide.createIcons();
+      var found = !!iconBox.querySelector('svg');
+      if (!found) {
+        iconBox.innerHTML = '<i data-lucide="circle-help" class="w-5 h-5"></i>';
+        if (window.lucide) window.lucide.createIcons();
+      }
+      iconBox.style.color = found ? 'var(--brand)' : 'var(--ink-4)';
+      iconBox.style.background = found ? 'var(--brand-50)' : 'var(--surface-2)';
+      if (iconWarn) iconWarn.hidden = found;
+    };
+    iconInput.addEventListener('input', renderIcon);
+    iconInput.addEventListener('blur', renderIcon);
+    renderIcon();
+  }
+
+  /* ── Состояние языковых кнопок для скринридеров ────────────────── */
+  document.querySelectorAll('[data-tabs="lang"]').forEach(function (group) {
+    var buttons = Array.prototype.slice.call(group.querySelectorAll('[data-tab]'));
+    var sync = function () {
+      buttons.forEach(function (b) {
+        b.setAttribute('aria-pressed', b.classList.contains('is-active') ? 'true' : 'false');
+      });
+    };
+    buttons.forEach(function (b) { b.addEventListener('click', function () { setTimeout(sync, 0); }); });
+    sync();
+  });
+
+  /* ── Предпросмотр пары цветов ──────────────────────────────────── */
+  var colorField = document.getElementById('field-color');
+  var accentField = document.getElementById('field-accent');
+  var colorBox = document.getElementById('color-preview');
+  if (colorField && accentField && colorBox) {
+    var paint = function () {
+      var a = /^#[0-9a-fA-F]{6}$/.test(colorField.value) ? colorField.value : '#EB5A40';
+      var b = /^#[0-9a-fA-F]{6}$/.test(accentField.value) ? accentField.value : '#F9A03F';
+      colorBox.style.background = 'linear-gradient(135deg,' + a + ',' + b + ')';
+    };
+    [colorField, accentField].forEach(function (el) { el.addEventListener('input', paint); });
+    document.querySelectorAll('input[type="color"][data-color-sync]').forEach(function (el) {
+      el.addEventListener('input', function () { setTimeout(paint, 0); });
+    });
+  }
+
+  /* ── Пересчёт высоты Markdown-редакторов после смены языка ─────── */
+  document.querySelectorAll('[data-tabs="lang"] [data-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setTimeout(function () {
+        document.querySelectorAll('.CodeMirror').forEach(function (node) {
+          if (node.CodeMirror) node.CodeMirror.refresh();
+        });
+      }, 60);
+    });
+  });
+
+  /* ── Мягкая проверка: русское название обязательно ────────────── */
+  var form = document.getElementById('service-form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      var nameRu = document.getElementById('field-name-ru');
+      if (nameRu && !nameRu.value.trim()) {
+        e.preventDefault();
+        var ruTab = form.querySelector('[data-tabs="lang"] [data-tab="ru"]')
+          || document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+        if (ruTab) ruTab.click();
+        nameRu.focus();
+        if (window.hubToast) window.hubToast('Укажите название сервиса на русском', 'error');
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

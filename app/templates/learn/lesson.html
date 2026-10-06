@@ -1,0 +1,234 @@
+{% extends 'layouts/base.html' %}
+{% set svc = course.service %}
+
+{% block title %}{{ lesson.tr('title') }} — {{ course.tr('title') }}{% endblock %}
+{% block description %}{{ lesson.tr('content') | excerpt(160) }}{% endblock %}
+
+{% block content %}
+<div style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+<div class="container-hub py-10">
+  <div class="grid lg:grid-cols-12 gap-10 items-start">
+
+    {# ══════════════════ ПРОГРАММА КУРСА ══════════════════ #}
+    <aside class="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-24 order-2 lg:order-1">
+      <div class="card p-5">
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+           class="flex items-center gap-3 pb-4 mb-4 border-b group" style="border-color:var(--line)">
+          <span class="svc-icon !w-10 !h-10 !rounded-xl flex-none">
+            <i data-lucide="{{ svc.icon if svc else 'graduation-cap' }}" class="w-5 h-5"></i>
+          </span>
+          <span class="min-w-0">
+            <span class="block text-[10px] font-bold uppercase tracking-wider" style="color:var(--ink-4)">Курс</span>
+            <span class="block text-sm font-bold truncate transition-colors group-hover:text-[var(--brand)]">{{ course.tr('title') }}</span>
+          </span>
+        </a>
+
+        <div class="mb-5">
+          <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+            <span class="ink-muted">{{ t('learn.progress') }}</span>
+            <span data-progress-value style="color:var(--brand)">{{ progress }}%</span>
+          </div>
+          <div class="progress"><div class="progress__bar" data-course-progress style="width:{{ progress }}%"></div></div>
+          <p class="text-[11px] ink-muted mt-2">
+            Урок {{ index + 1 }} {{ t('common.of') }} {{ lessons | length }}
+          </p>
+        </div>
+
+        <nav class="space-y-4 max-h-[55vh] overflow-y-auto -mx-1 px-1" aria-label="Программа курса">
+          {% set ns = namespace(counter=0) %}
+          {% for module in course.modules %}
+            <div>
+              <p class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--ink-4)">
+                <span class="grid place-items-center w-5 h-5 rounded-md text-[10px] text-white flex-none"
+                      style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">{{ loop.index }}</span>
+                {{ module.tr('title') }}
+              </p>
+              <div class="space-y-1">
+                {% for item in module.lessons %}
+                  {% set ns.counter = ns.counter + 1 %}
+                  {% set is_current = item.id == lesson.id %}
+                  <a href="{{ url_for('learn.lesson', slug=course.slug, lesson_id=item.id) }}"
+                     class="flex items-start gap-2.5 px-3 py-2 rounded-lg text-[13px] leading-snug transition-all duration-250
+                            {% if is_current %}font-bold text-white shadow-brand{% else %}hover:bg-[var(--brand-50)]{% endif %}"
+                     {% if is_current %}style="background:linear-gradient(135deg,var(--brand),var(--brand-2))"{% endif %}
+                     {% if is_current %}aria-current="page"{% endif %}>
+                    {% if item.is_done_by(current_user) %}
+                      <i data-lucide="circle-check" class="w-4 h-4 flex-none mt-px" {% if not is_current %}style="color:#10B981"{% endif %}></i>
+                    {% elif is_current %}
+                      <i data-lucide="play" class="w-4 h-4 flex-none mt-px"></i>
+                    {% else %}
+                      <i data-lucide="circle" class="w-4 h-4 flex-none mt-px" style="color:var(--ink-4)"></i>
+                    {% endif %}
+                    <span class="flex-1">{{ item.tr('title') }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+
+          {% if course.quiz %}
+            <a href="{{ url_for('learn.quiz', slug=course.slug) }}"
+               class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-bold transition-all hover:bg-[var(--brand-50)] border border-dashed"
+               style="border-color:var(--brand-200);color:var(--brand)">
+              <i data-lucide="clipboard-check" class="w-4 h-4 flex-none"></i>
+              {{ t('learn.quiz') }}
+            </a>
+          {% endif %}
+        </nav>
+      </div>
+    </aside>
+
+    {# ══════════════════ СОДЕРЖАНИЕ УРОКА ══════════════════ #}
+    <div class="lg:col-span-8 xl:col-span-9 order-1 lg:order-2 min-w-0">
+
+      <nav class="flex items-center gap-2 text-xs mb-6 flex-wrap" aria-label="Хлебные крошки">
+        <a href="{{ url_for('public.services') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Сервисы</a>
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+        {% if svc %}
+          <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ svc.tr('name') }}</a>
+          <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+        {% endif %}
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Курс</a>
+      </nav>
+
+      <article class="card p-7 sm:p-10">
+        <div class="flex flex-wrap items-center gap-2 mb-5">
+          <span class="badge badge-brand">Урок {{ index + 1 }}</span>
+          <span class="badge badge-slate"><i data-lucide="clock" class="w-3 h-3"></i>{{ lesson.duration_min }} {{ t('learn.minutes') }}</span>
+          {% if lesson.is_done_by(current_user) %}
+            <span class="badge badge-emerald"><i data-lucide="check" class="w-3 h-3"></i>{{ t('learn.done') }}</span>
+          {% endif %}
+        </div>
+
+        <h1 class="font-display text-3xl sm:text-[2.35rem] font-extrabold leading-[1.15] mb-8">{{ lesson.tr('title') }}</h1>
+
+        {% if lesson.media_type == 'image' and lesson.media_url %}
+          <a href="{{ lesson.media_url }}" class="glightbox block mb-8 rounded-2xl overflow-hidden border shadow-card" style="border-color:var(--line)">
+            <img src="{{ lesson.media_url }}" alt="{{ lesson.tr('title') }}" loading="lazy" class="w-full">
+          </a>
+        {% elif lesson.media_type in ('video', 'embed') and lesson.media_url %}
+          <div class="mb-8 rounded-2xl overflow-hidden border shadow-card aspect-video" style="border-color:var(--line)">
+            <iframe src="{{ lesson.media_url }}" title="{{ lesson.tr('title') }}" loading="lazy"
+                    class="w-full h-full" allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          </div>
+        {% endif %}
+
+        <div class="prose-hub">{{ lesson.tr('content') | markdown }}</div>
+
+        {% if lesson.tr('tip') %}
+          <aside class="mt-9 flex gap-4 p-5 rounded-2xl" style="background:var(--brand-50);border:1px solid color-mix(in srgb,var(--brand) 18%,transparent)">
+            <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                  style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+              <i data-lucide="lightbulb" class="w-4.5 h-4.5"></i>
+            </span>
+            <div class="min-w-0">
+              <p class="font-display font-bold text-sm mb-1">{{ t('learn.tip') }}</p>
+              <p class="text-sm leading-relaxed" style="color:var(--ink-2)">{{ lesson.tr('tip') }}</p>
+            </div>
+          </aside>
+        {% endif %}
+
+        {# ══════════════════ ДЕЙСТВИЯ ══════════════════ #}
+        <div class="mt-10 pt-7 border-t" style="border-color:var(--line)">
+          {% if current_user.is_authenticated %}
+            {% if not lesson.is_done_by(current_user) %}
+              <button data-lesson-complete="{{ lesson.id }}"
+                      data-login-url="{{ url_for('auth.login', next=request.path) }}"
+                      class="btn btn-primary btn-lg btn-block sm:!w-auto magnetic">
+                <i data-lucide="check-check"></i> {{ t('learn.mark_done') }}
+              </button>
+            {% else %}
+              <div class="inline-flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-bold"
+                   style="background:rgba(16,185,129,.1);color:#047857">
+                <i data-lucide="circle-check-big" class="w-5 h-5"></i>
+                Урок пройден
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-5 rounded-2xl" style="background:var(--surface-2)">
+              <div class="flex-1">
+                <p class="font-display font-bold text-sm">Сохраняйте прогресс</p>
+                <p class="text-xs ink-muted mt-0.5">Войдите — и платформа запомнит, где вы остановились, а в конце выдаст сертификат.</p>
+              </div>
+              <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-primary flex-none">
+                <i data-lucide="log-in"></i> {{ t('action.login') }}
+              </a>
+            </div>
+          {% endif %}
+        </div>
+
+        {# ══════════════════ НАВИГАЦИЯ ══════════════════ #}
+        <div class="flex items-center justify-between gap-4 mt-8">
+          {% if prev_lesson %}
+            <a href="{{ url_for('learn.lesson', slug=course.slug, lesson_id=prev_lesson.id) }}"
+               class="group flex items-center gap-3 flex-1 min-w-0 p-3.5 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-soft"
+               style="border-color:var(--line)">
+              <i data-lucide="arrow-left" class="w-4 h-4 flex-none transition-transform group-hover:-translate-x-1" style="color:var(--brand)"></i>
+              <span class="min-w-0 text-left">
+                <span class="block text-[10px] font-bold uppercase tracking-wider" style="color:var(--ink-4)">Предыдущий</span>
+                <span class="block text-sm font-semibold truncate">{{ prev_lesson.tr('title') }}</span>
+              </span>
+            </a>
+          {% else %}<span class="flex-1"></span>{% endif %}
+
+          {% if next_lesson %}
+            <a href="{{ url_for('learn.lesson', slug=course.slug, lesson_id=next_lesson.id) }}"
+               class="group flex items-center gap-3 flex-1 min-w-0 p-3.5 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-soft text-right"
+               style="border-color:var(--line)">
+              <span class="min-w-0 flex-1">
+                <span class="block text-[10px] font-bold uppercase tracking-wider" style="color:var(--ink-4)">Следующий</span>
+                <span class="block text-sm font-semibold truncate">{{ next_lesson.tr('title') }}</span>
+              </span>
+              <i data-lucide="arrow-right" class="w-4 h-4 flex-none transition-transform group-hover:translate-x-1" style="color:var(--brand)"></i>
+            </a>
+          {% elif course.quiz %}
+            <a href="{{ url_for('learn.quiz', slug=course.slug) }}"
+               class="group flex items-center gap-3 flex-1 min-w-0 p-3.5 rounded-xl transition-all hover:-translate-y-0.5 text-right text-white shadow-brand"
+               style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">
+              <span class="min-w-0 flex-1">
+                <span class="block text-[10px] font-bold uppercase tracking-wider opacity-80">Финал</span>
+                <span class="block text-sm font-bold truncate">{{ t('learn.quiz') }}</span>
+              </span>
+              <i data-lucide="clipboard-check" class="w-4 h-4 flex-none"></i>
+            </a>
+          {% else %}<span class="flex-1"></span>{% endif %}
+        </div>
+      </article>
+
+      {% if svc %}
+        <div class="card p-5 mt-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <span class="svc-icon !w-11 !h-11 !rounded-xl flex-none">
+            <i data-lucide="{{ svc.icon }}" class="w-5 h-5"></i>
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold">Попробуйте прямо сейчас</p>
+            <p class="text-xs ink-muted mt-0.5">Откройте {{ svc.tr('name') }} в соседней вкладке и повторяйте шаги из урока.</p>
+          </div>
+          {% if svc.url %}
+            <a href="{{ svc.url }}" target="_blank" rel="noopener" data-track-service="{{ svc.id }}" class="btn btn-ghost btn-sm flex-none">
+              <i data-lucide="external-link"></i> Открыть сервис
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Стрелки ← → листают уроки
+  document.addEventListener('keydown', function (e) {
+    if (e.target.matches('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+    {% if prev_lesson %}
+      if (e.key === 'ArrowLeft') window.location.href = "{{ url_for('learn.lesson', slug=course.slug, lesson_id=prev_lesson.id) }}";
+    {% endif %}
+    {% if next_lesson %}
+      if (e.key === 'ArrowRight') window.location.href = "{{ url_for('learn.lesson', slug=course.slug, lesson_id=next_lesson.id) }}";
+    {% endif %}
+  });
+</script>
+{% endblock %}

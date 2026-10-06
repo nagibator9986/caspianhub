@@ -1,0 +1,177 @@
+{% set nav = nav_items('header') %}
+<header class="nav-root no-print">
+  <div class="nav-inner">
+    <div class="container-hub">
+      <div class="flex items-center gap-4 h-[var(--nav-h)]">
+
+        {# Логотип #}
+        <a href="{{ url_for('public.index') }}" class="flex items-center gap-3 flex-none group">
+          <span class="relative">
+            <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo.png') }}"
+                 alt="{{ setting('site_name', 'Caspian College Hub') }}"
+                 class="h-10 w-auto transition-transform duration-500 group-hover:scale-105">
+          </span>
+          <span class="hidden sm:block leading-tight">
+            <span class="block font-display font-extrabold text-[15px] tracking-tight">
+              {{ setting('site_name', 'Caspian College Hub') }}
+            </span>
+            <span class="hidden 2xl:block text-[11px] ink-muted font-medium">
+              {{ setting('site_tagline', 'Единое окно сервисов колледжа') }}
+            </span>
+          </span>
+        </a>
+
+        {# Основная навигация #}
+        <nav class="hidden xl:flex items-center gap-5 2xl:gap-7 ml-4 2xl:ml-6 flex-none" aria-label="Основная навигация">
+          {% if nav %}
+            {% for item in nav %}
+              <a href="{{ item.url }}"
+                 {% if item.is_external %}target="_blank" rel="noopener"{% endif %}
+                 class="nav-link whitespace-nowrap {% if request.path == item.url %}is-active{% endif %}">
+                {{ item.tr('title') }}
+              </a>
+            {% endfor %}
+          {% else %}
+            <a href="{{ url_for('public.services') }}" class="nav-link {% if '/services' in request.path %}is-active{% endif %}">{{ t('nav.services') }}</a>
+            <a href="{{ url_for('public.courses') }}" class="nav-link {% if '/courses' in request.path %}is-active{% endif %}">{{ t('nav.courses') }}</a>
+            <a href="{{ url_for('public.news') }}" class="nav-link {% if '/news' in request.path %}is-active{% endif %}">{{ t('nav.news') }}</a>
+            <a href="{{ url_for('public.faq') }}" class="nav-link {% if '/faq' in request.path %}is-active{% endif %}">{{ t('nav.faq') }}</a>
+            <a href="{{ url_for('public.about') }}" class="nav-link {% if '/about' in request.path %}is-active{% endif %}">{{ t('nav.about') }}</a>
+          {% endif %}
+        </nav>
+
+        <div class="flex-1"></div>
+
+        {# Поиск #}
+        <div class="relative hidden 2xl:block w-48 flex-none">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-4)"></i>
+          <input data-search-input type="search" autocomplete="off"
+                 placeholder="{{ setting('search_placeholder', 'Найти сервис…') }}"
+                 aria-label="Поиск по сервисам"
+                 class="field !py-2 !pl-10 !pr-12 !text-sm !rounded-full">
+          <kbd class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded border pointer-events-none"
+               style="border-color:var(--line-strong);color:var(--ink-4)">⌘K</kbd>
+          <div data-search-results
+               class="hidden absolute top-full mt-2 left-0 right-0 card p-2 shadow-lift max-h-[26rem] overflow-y-auto z-50"></div>
+        </div>
+
+        {# Компактный поиск для средних экранов, где строка поиска не помещается #}
+        <a href="{{ url_for('public.search') }}" class="hidden md:inline-flex 2xl:hidden chip !px-2.5 !py-2" aria-label="Поиск">
+          <i data-lucide="search" class="w-4 h-4"></i>
+        </a>
+
+        {# Язык #}
+        <div class="relative hidden md:block flex-none" x-data="{open:false}" @click.outside="open=false">
+          <button @click="open=!open" class="chip !px-3 !py-2" :aria-expanded="open" aria-label="Выбрать язык">
+            <i data-lucide="languages" class="w-4 h-4"></i>
+            <span class="uppercase text-[11px] font-bold">{{ lang }}</span>
+          </button>
+          <div x-show="open" x-cloak x-transition.opacity.duration.200ms
+               class="absolute right-0 mt-2 card p-1.5 w-40 z-50">
+            {% for code, label in LANGUAGES.items() %}
+              <a href="?lang={{ code }}"
+                 class="flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-[var(--brand-50)] transition-colors {% if code == lang %}font-bold text-[var(--brand)]{% endif %}">
+                {{ label }}
+                {% if code == lang %}<i data-lucide="check" class="w-4 h-4"></i>{% endif %}
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Тема #}
+        <button data-theme-toggle class="chip !px-2.5 !py-2 flex-none" aria-label="Переключить тему">
+          <i data-theme-icon data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+
+        {# Аккаунт #}
+        {% if current_user.is_authenticated %}
+          <div class="relative" x-data="{open:false}" @click.outside="open=false">
+            <button @click="open=!open" class="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border transition-all hover:shadow-soft"
+                    style="border-color:var(--line-strong)" :aria-expanded="open">
+              {% if current_user.avatar %}
+                <img src="{{ url_for('static', filename=current_user.avatar) }}" alt="" class="w-7 h-7 rounded-full object-cover">
+              {% else %}
+                <span class="w-7 h-7 rounded-full grid place-items-center text-[11px] font-bold text-white"
+                      style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">{{ current_user.initials }}</span>
+              {% endif %}
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5" style="color:var(--ink-4)"></i>
+            </button>
+            <div x-show="open" x-cloak x-transition.opacity.duration.200ms
+                 class="absolute right-0 mt-2 card p-1.5 w-60 z-50">
+              <div class="px-3 py-2.5 border-b" style="border-color:var(--line)">
+                <p class="text-sm font-bold truncate">{{ current_user.full_name or current_user.email }}</p>
+                <p class="text-xs ink-muted truncate">{{ current_user.email }}</p>
+                {% if current_user.group_name %}
+                  <span class="badge badge-brand mt-1.5">{{ current_user.group_name }}</span>
+                {% endif %}
+              </div>
+              <a href="{{ url_for('account.dashboard') }}" class="admin-nav mt-1"><i data-lucide="layout-dashboard"></i>{{ t('nav.account') }}</a>
+              <a href="{{ url_for('account.learning') }}" class="admin-nav"><i data-lucide="graduation-cap"></i>{{ t('acc.my_courses') }}</a>
+              <a href="{{ url_for('account.favorites') }}" class="admin-nav"><i data-lucide="heart"></i>{{ t('acc.favorites') }}</a>
+              <a href="{{ url_for('account.certificates') }}" class="admin-nav"><i data-lucide="award"></i>{{ t('acc.certificates') }}</a>
+              {% if current_user.is_staff %}
+                <div class="my-1 border-t" style="border-color:var(--line)"></div>
+                <a href="{{ url_for('admin.dashboard') }}" class="admin-nav"><i data-lucide="settings-2"></i>{{ t('nav.admin') }}</a>
+              {% endif %}
+              <div class="my-1 border-t" style="border-color:var(--line)"></div>
+              <form method="post" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="admin-nav w-full !text-left"><i data-lucide="log-out"></i>{{ t('action.logout') }}</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="hidden sm:inline-flex btn btn-ghost btn-sm whitespace-nowrap flex-none">{{ t('action.login') }}</a>
+          <a href="{{ url_for('auth.register') }}" class="hidden 2xl:inline-flex btn btn-primary btn-sm magnetic whitespace-nowrap flex-none">{{ t('action.register') }}</a>
+        {% endif %}
+
+        {# Бургер #}
+        <button data-menu-toggle class="xl:hidden chip !px-2.5 !py-2" aria-expanded="false" aria-label="Меню">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# Мобильное меню #}
+  <div data-menu-panel class="hidden xl:hidden fixed inset-0 top-[var(--nav-h)] z-50 overflow-y-auto"
+       style="background:var(--bg)">
+    <div class="container-hub py-6 space-y-1">
+      <div class="relative mb-4">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style="color:var(--ink-4)"></i>
+        <form action="{{ url_for('public.search') }}" method="get">
+          <input name="q" type="search" placeholder="Найти сервис…" class="field !pl-10 !rounded-full">
+        </form>
+      </div>
+      {% for item in (nav or []) %}
+        <a href="{{ item.url }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)] transition-colors">
+          {% if item.icon %}<i data-lucide="{{ item.icon }}" class="w-5 h-5" style="color:var(--brand)"></i>{% endif %}
+          {{ item.tr('title') }}
+        </a>
+      {% else %}
+        <a href="{{ url_for('public.services') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="layout-grid" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.services') }}</a>
+        <a href="{{ url_for('public.courses') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="graduation-cap" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.courses') }}</a>
+        <a href="{{ url_for('public.news') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="newspaper" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.news') }}</a>
+        <a href="{{ url_for('public.faq') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="circle-help" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.faq') }}</a>
+        <a href="{{ url_for('public.about') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="info" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.about') }}</a>
+        <a href="{{ url_for('public.support') }}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold hover:bg-[var(--brand-50)]"><i data-lucide="life-buoy" class="w-5 h-5" style="color:var(--brand)"></i>{{ t('nav.help') }}</a>
+      {% endfor %}
+
+      <div class="pt-4 mt-4 border-t flex gap-3" style="border-color:var(--line)">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('account.dashboard') }}" class="btn btn-primary btn-block">{{ t('nav.account') }}</a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="btn btn-ghost flex-1">{{ t('action.login') }}</a>
+          <a href="{{ url_for('auth.register') }}" class="btn btn-primary flex-1">{{ t('action.register') }}</a>
+        {% endif %}
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        {% for code, label in LANGUAGES.items() %}
+          <a href="?lang={{ code }}" class="chip flex-1 justify-center {% if code == lang %}is-active{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</header>
+<style>[x-cloak]{display:none!important}</style>

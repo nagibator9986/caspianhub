@@ -1,0 +1,157 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Блоки главной{% endblock %}
+{% block heading %}Блоки главной страницы{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Заголовки, подзаголовки, видимость и порядок секций</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="external-link"></i><span class="hidden sm:inline">Посмотреть главную</span>
+  </a>
+  <button type="submit" form="home-form" class="btn btn-primary btn-sm">
+    <i data-lucide="check"></i><span class="hidden sm:inline">Сохранить всё</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set section_meta = {
+  'hero':         ('Первый экран', 'sparkles', 'Крупный заголовок, подзаголовок и поиск — то, что видят сразу'),
+  'stats':        ('Статистика', 'chart-no-axes-column', 'Полоса с числами: сервисы, категории, курсы, уроки'),
+  'categories':   ('Категории', 'folder-tree', 'Плитка разделов каталога'),
+  'services':     ('Сервисы', 'layout-grid', 'Карточки избранных сервисов'),
+  'courses':      ('Курсы', 'graduation-cap', 'Мини-курсы по работе с сервисами'),
+  'how':          ('Как это работает', 'route', 'Четыре шага знакомства с платформой'),
+  'news':         ('Новости', 'newspaper', 'Три последних материала'),
+  'testimonials': ('Отзывы', 'quote', 'Карусель отзывов студентов и преподавателей'),
+  'faq':          ('Вопросы', 'circle-help', 'Аккордеон частых вопросов'),
+  'cta':          ('Призыв к действию', 'megaphone', 'Финальный блок с приглашением создать аккаунт')
+} %}
+
+{% set active_total = sections | selectattr('is_active') | list | length %}
+
+{# ══════════════════ ПОЯСНЕНИЕ ══════════════════ #}
+<div class="card p-5 mb-6 flex flex-col sm:flex-row items-start gap-4">
+  <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+        style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+    <i data-lucide="house" class="w-5 h-5"></i>
+  </span>
+  <div class="flex-1 min-w-0">
+    <h2 class="font-display font-bold text-base">Конструктор главной страницы</h2>
+    <p class="text-sm ink-muted mt-1 leading-relaxed">
+      Здесь задаются тексты и видимость каждой секции. Отключённый блок просто не отрисовывается —
+      данные при этом сохраняются. Само наполнение (сервисы, курсы, новости) редактируется в своих разделах.
+    </p>
+  </div>
+  <span class="badge badge-brand flex-none">
+    {{ active_total }} {{ active_total | plural('блок включён', 'блока включено', 'блоков включено') }}
+  </span>
+</div>
+
+{% if sections %}
+  <form id="home-form" method="post" action="{{ url_for('admin.home_sections') }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% for section in sections %}
+      {% set meta = section_meta.get(section.key, (section.key, 'square', '')) %}
+      <section class="card p-5" x-data="{ enabled: {{ 'true' if section.is_active else 'false' }} }">
+
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+          <div class="flex items-start gap-3 min-w-0">
+            <span class="grid place-items-center w-11 h-11 rounded-xl flex-none transition-colors"
+                  :style="enabled
+                    ? 'background:var(--brand-50);color:var(--brand)'
+                    : 'background:var(--surface-2);color:var(--ink-4)'">
+              <i data-lucide="{{ meta[1] }}" class="w-5 h-5"></i>
+            </span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="font-display font-bold text-base">{{ meta[0] }}</h3>
+                <code class="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                      style="background:var(--surface-2);color:var(--ink-4)">{{ section.key }}</code>
+              </div>
+              <p class="text-xs ink-muted mt-0.5">{{ meta[2] }}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 flex-none">
+            <div class="flex items-center gap-2">
+              <label class="text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)"
+                     for="s{{ section.id }}-position">Порядок</label>
+              <input id="s{{ section.id }}-position" name="s{{ section.id }}_position" type="number" min="0"
+                     value="{{ section.position }}" class="field !w-20 !py-1.5 !text-sm">
+            </div>
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <span class="switch">
+                <input type="checkbox" name="s{{ section.id }}_is_active" x-model="enabled">
+                <span></span>
+              </span>
+              <span class="text-sm font-semibold" x-text="enabled ? 'Виден' : 'Скрыт'"></span>
+            </label>
+          </div>
+        </div>
+
+        <div data-tabs="lang" :class="enabled ? '' : 'opacity-55'">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="label !mb-0">Заголовок и подзаголовок</span>
+            <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+              {% for code, label, full in [('ru', 'Рус', 'русском'), ('kk', 'Қаз', 'казахском'), ('en', 'Eng', 'английском')] %}
+                <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                        data-tab="{{ code }}" aria-label="Показать поля на {{ full }}">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% for code, full in [('ru', 'русском'), ('kk', 'казахском'), ('en', 'английском')] %}
+            <div data-panel="{{ code }}" class="grid md:grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="s{{ section.id }}-title-{{ code }}">Заголовок ({{ full }})</label>
+                <input id="s{{ section.id }}-title-{{ code }}" name="s{{ section.id }}_title_{{ code }}"
+                       type="text" class="field"
+                       value="{{ section['title_' ~ code] or '' }}"
+                       placeholder="{{ meta[0] if code == 'ru' else '' }}">
+              </div>
+              <div>
+                <label class="label" for="s{{ section.id }}-subtitle-{{ code }}">Подзаголовок ({{ full }})</label>
+                <textarea id="s{{ section.id }}-subtitle-{{ code }}" name="s{{ section.id }}_subtitle_{{ code }}"
+                          rows="2" class="field">{{ section['subtitle_' ~ code] or '' }}</textarea>
+              </div>
+            </div>
+          {% endfor %}
+
+          {% if section.key == 'hero' %}
+            <p class="help mt-3 flex items-start gap-2">
+              <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+              <span>
+                Основной текст первого экрана редактируется в
+                <a href="{{ url_for('admin.settings') }}#hero" class="font-semibold" style="color:var(--brand)">Настройках</a>
+                — там же задаётся подсвечиваемая часть заголовка и тексты кнопок.
+              </span>
+            </p>
+          {% endif %}
+        </div>
+      </section>
+    {% endfor %}
+
+    <div class="flex justify-end pt-2">
+      <button class="btn btn-primary btn-lg">
+        <i data-lucide="check"></i> Сохранить все блоки
+      </button>
+    </div>
+  </form>
+{% else %}
+  <div class="card p-12 text-center">
+    <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+          style="background:var(--brand-50);color:var(--brand)">
+      <i data-lucide="house" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-bold text-lg">Блоки не созданы</h2>
+    <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+      Секции главной создаются при первичном наполнении базы. Выполните
+      <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background:var(--surface-2)">python seed.py</code>
+      и вернитесь на эту страницу.
+    </p>
+  </div>
+{% endif %}
+{% endblock %}

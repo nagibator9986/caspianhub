@@ -1,0 +1,292 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Вопросы и ответы{% endblock %}
+{% block heading %}Вопросы и ответы{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">База ответов для страницы «Частые вопросы» и блока на главной</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.faq') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="external-link"></i><span class="hidden sm:inline">На сайте</span>
+  </a>
+  <button type="button" x-data @click="$dispatch('faq-new')" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новый вопрос</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set total = items | length %}
+{% set active_total = items | selectattr('is_active') | list | length %}
+{% set categories = items | map(attribute='category') | select | unique | list %}
+{% set known_categories = ['Общее', 'Доступ и вход', 'Обучение', 'Документы', 'Техподдержка'] %}
+
+{% set blank = {
+  'id': '',
+  'question_ru': '', 'question_kk': '', 'question_en': '',
+  'answer_ru': '', 'answer_kk': '', 'answer_en': '',
+  'category': 'Общее', 'position': total + 1, 'is_active': true
+} %}
+
+<div x-data='faqEditor({{ blank | tojson }})' @faq-new.window="startNew()">
+
+  {# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    {% set metrics = [
+      ('circle-help', total, 'вопросов', 'всего в базе', '#EB5A40'),
+      ('eye', active_total, 'активных', 'видны посетителям', '#10B981'),
+      ('folder-tree', categories | length, 'разделов', 'группируют ответы', '#0EA5E9'),
+    ] %}
+    {% for icon, value, label, hint, color in metrics %}
+      <div class="card stat-card p-5" style="--glow:{{ color }}">
+        <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+              style="background:{{ color }}1a;color:{{ color }}">
+          <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+        </span>
+        <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+        <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+        <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+    {# ══════════════════ СПИСОК ══════════════════ #}
+    <div class="lg:col-span-7 xl:col-span-8">
+      {% if items %}
+        <div class="card p-5">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 class="font-display font-bold text-base">Все вопросы</h2>
+            <span class="text-[11px] ink-muted inline-flex items-center gap-1.5">
+              <i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i>
+              Перетаскивайте, чтобы менять порядок
+            </span>
+          </div>
+
+          <div data-sortable="faq" class="space-y-2.5">
+            {% for item in items %}
+              <div data-id="{{ item.id }}"
+                   class="rounded-xl border p-4 transition-colors"
+                   :class="isEditing({{ item.id }}) ? 'ring-2' : ''"
+                   :style="isEditing({{ item.id }}) ? 'border-color:var(--brand);--tw-ring-color:color-mix(in srgb,var(--brand) 22%,transparent)' : ''"
+                   style="border-color:var(--line);background:var(--surface)">
+                <div class="flex items-start gap-3">
+                  <span class="drag-handle mt-0.5 flex-none" aria-label="Перетащить">
+                    <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                  </span>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                      <span class="badge badge-slate">{{ item.category or 'Общее' }}</span>
+                      {% if item.is_active %}
+                        <span class="badge badge-emerald"><i data-lucide="eye" class="w-3 h-3"></i>Активен</span>
+                      {% else %}
+                        <span class="badge badge-rose"><i data-lucide="eye-off" class="w-3 h-3"></i>Скрыт</span>
+                      {% endif %}
+                      {% if not item.question_kk or not item.question_en %}
+                        <span class="badge badge-amber" title="Заполнены не все языки">
+                          <i data-lucide="languages" class="w-3 h-3"></i>RU
+                        </span>
+                      {% endif %}
+                    </div>
+                    <p class="text-sm font-semibold leading-snug">{{ item.question_ru }}</p>
+                    <p class="text-xs ink-muted mt-1 line-clamp-2">{{ item.answer_ru | excerpt(160) }}</p>
+                  </div>
+
+                  <div class="flex items-center gap-1 flex-none">
+                    <button type="button" class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                            style="color:var(--ink-3)" aria-label="Изменить вопрос"
+                            @click='edit({{ {
+                              "id": item.id,
+                              "question_ru": item.question_ru, "question_kk": item.question_kk, "question_en": item.question_en,
+                              "answer_ru": item.answer_ru, "answer_kk": item.answer_kk, "answer_en": item.answer_en,
+                              "category": item.category or "Общее", "position": item.position, "is_active": item.is_active
+                            } | tojson }})'>
+                      <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+                    <form method="post" action="{{ url_for('admin.faq_delete', faq_id=item.id) }}"
+                          data-confirm="Удалить вопрос «{{ item.question_ru | truncate(50, true, '…') }}»?">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                              style="color:var(--ink-3)" aria-label="Удалить вопрос">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="card p-12 text-center">
+          <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="circle-help" class="w-7 h-7"></i>
+          </span>
+          <h2 class="font-display font-bold text-lg">Вопросов пока нет</h2>
+          <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+            Добавьте вопросы, которые студенты задают чаще всего — они появятся на странице
+            «Частые вопросы» и в блоке на главной.
+          </p>
+          <button type="button" @click="startNew()" class="btn btn-primary btn-sm mt-6">
+            <i data-lucide="plus"></i> Добавить первый вопрос
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ══════════════════ ФОРМА ══════════════════ #}
+    <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24">
+      <form id="faq-form" method="post" action="{{ url_for('admin.faq') }}"
+            class="card p-5" @submit="guard($event)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" :value="form.id">
+
+        <div class="flex items-center justify-between gap-3 mb-5">
+          <h2 class="font-display font-bold text-base" x-text="isEdit ? 'Изменить вопрос' : 'Новый вопрос'"></h2>
+          <button type="button" x-show="isEdit" x-cloak @click="startNew()"
+                  class="text-xs font-bold" style="color:var(--brand)">Отменить</button>
+        </div>
+
+        {# Языковые вкладки #}
+        <div data-tabs="lang">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="label !mb-0">Вопрос и ответ</span>
+            <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+              {% for code, label, full in [('ru', 'Рус', 'русском'), ('kk', 'Қаз', 'казахском'), ('en', 'Eng', 'английском')] %}
+                <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                        data-tab="{{ code }}" aria-label="Показать поля на {{ full }}">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% for code, full, hint in [
+            ('ru', 'русском', 'Обязательно — используется как запасной вариант для других языков'),
+            ('kk', 'казахском', 'Необязательно — если пусто, покажем русскую версию'),
+            ('en', 'английском', 'Необязательно — если пусто, покажем русскую версию')
+          ] %}
+            <div data-panel="{{ code }}" class="space-y-3">
+              <div>
+                <label class="label" for="faq-question-{{ code }}">Вопрос на {{ full }}</label>
+                <input id="faq-question-{{ code }}" name="question_{{ code }}" type="text"
+                       class="field" x-model="form.question_{{ code }}"
+                       placeholder="{{ 'Где взять логин от электронного журнала?' if code == 'ru' else '' }}"
+                       {% if code == 'ru' %}required{% endif %}>
+                <p class="help">{{ hint }}</p>
+              </div>
+              <div>
+                <label class="label" for="faq-answer-{{ code }}">Ответ на {{ full }}</label>
+                <textarea id="faq-answer-{{ code }}" name="answer_{{ code }}" rows="6"
+                          class="field" x-model="form.answer_{{ code }}"
+                          placeholder="{{ 'Логин и пароль выдаёт куратор группы…' if code == 'ru' else '' }}"></textarea>
+                <p class="help">Поддерживается Markdown: **жирный**, ссылки, списки</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-5 pt-5 border-t" style="border-color:var(--line)">
+          <div class="col-span-2">
+            <label class="label" for="faq-category">Раздел</label>
+            <input id="faq-category" name="category" type="text" class="field"
+                   list="faq-categories" x-model="form.category" placeholder="Общее">
+            <datalist id="faq-categories">
+              {% for name in known_categories %}<option value="{{ name }}"></option>{% endfor %}
+              {% for name in categories %}
+                {% if name not in known_categories %}<option value="{{ name }}"></option>{% endif %}
+              {% endfor %}
+            </datalist>
+            <p class="help">Вопросы с одинаковым разделом группируются на странице</p>
+          </div>
+
+          <div>
+            <label class="label" for="faq-position">Порядок</label>
+            <input id="faq-position" name="position" type="number" min="0" class="field"
+                   x-model="form.position">
+          </div>
+
+          <div class="flex items-end pb-1">
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <span class="switch">
+                <input type="checkbox" name="is_active" x-model="form.is_active">
+                <span></span>
+              </span>
+              <span class="text-sm font-semibold">Показывать</span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-5">
+          <i data-lucide="check"></i>
+          <span x-text="isEdit ? 'Сохранить изменения' : 'Добавить вопрос'"></span>
+        </button>
+      </form>
+
+      <div class="card p-5 mt-4">
+        <h3 class="font-display font-bold text-sm mb-2.5 flex items-center gap-2">
+          <i data-lucide="lightbulb" class="w-4 h-4" style="color:var(--brand)"></i>
+          Как писать ответы
+        </h3>
+        <ul class="text-xs ink-muted space-y-1.5 leading-relaxed">
+          <li>Отвечайте сразу по существу — без вступлений.</li>
+          <li>Два-четыре предложения: студент читает с телефона.</li>
+          <li>Если нужен переход — дайте прямую ссылку в ответе.</li>
+          <li>Не обещайте сроков, которых не контролируете.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('faqEditor', (blank) => ({
+      blank: blank,
+      form: Object.assign({}, blank),
+
+      get isEdit() { return String(this.form.id || '') !== ''; },
+      isEditing(id) { return String(this.form.id || '') === String(id); },
+
+      /* Переносит выбранный вопрос в форму справа */
+      edit(data) {
+        this.form = Object.assign({}, this.blank, data || {});
+        this.focusForm();
+      },
+
+      /* Сбрасывает форму к созданию нового вопроса */
+      startNew() {
+        this.form = Object.assign({}, this.blank);
+        this.focusForm();
+      },
+
+      focusForm() {
+        this.$nextTick(() => {
+          const card = document.getElementById('faq-form');
+          if (card && window.matchMedia('(max-width: 1023px)').matches) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+          if (tab) tab.click();
+          const first = document.getElementById('faq-question-ru');
+          if (first) first.focus({ preventScroll: true });
+        });
+      },
+
+      /* Не отправляем форму без вопроса на русском */
+      guard(event) {
+        if (String(this.form.question_ru || '').trim()) return;
+        event.preventDefault();
+        const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+        if (tab) tab.click();
+        const field = document.getElementById('faq-question-ru');
+        if (field) field.focus();
+        if (window.hubToast) window.hubToast('Введите вопрос на русском', 'error');
+      },
+    }));
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,7 @@
+{
+  "study":     {"name_ru": "Учёба",                "name_kk": "Оқу",                 "name_en": "Study",          "icon": "graduation-cap", "color": "#EB5A40", "description_ru": "Журнал, расписание, библиотека и методические ресурсы — всё, что нужно для учебного процесса."},
+  "career":    {"name_ru": "Карьера и практика",   "name_kk": "Мансап және тәжірибе", "name_en": "Career",         "icon": "briefcase",      "color": "#F59E0B", "description_ru": "Практика, стажировки, вакансии и первые шаги в профессии."},
+  "documents": {"name_ru": "Документы и заявки",   "name_kk": "Құжаттар",            "name_en": "Documents",      "icon": "file-text",      "color": "#0EA5E9", "description_ru": "Справки, заявления, общежитие и государственные услуги для студентов."},
+  "community": {"name_ru": "Связь и сообщество",   "name_kk": "Байланыс",            "name_en": "Community",      "icon": "messages-square","color": "#10B981", "description_ru": "Официальные каналы колледжа, поддержка и студенческая жизнь."},
+  "digital":   {"name_ru": "Цифровые навыки",      "name_kk": "Цифрлық дағдылар",    "name_en": "Digital skills", "icon": "sparkles",       "color": "#8B5CF6", "description_ru": "ИИ-инструменты, онлайн-курсы и всё, что усиливает вас как специалиста."}
+}

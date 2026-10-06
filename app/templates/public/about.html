@@ -1,0 +1,406 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ setting('about_seo_title', 'О платформе') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ setting('about_subtitle', 'Раньше сервисы колледжа жили в разных чатах, объявлениях и закладках. Теперь это один каталог с понятными карточками и коротким обучением по каждому сервису.') }}{% endblock %}
+
+{% block content %}
+
+{# ══════════════════════ ШАПКА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-60 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-20 lg:pb-24">
+
+    {# Хлебные крошки #}
+    <nav class="flex items-center gap-2 text-xs mb-10 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('nav.about') }}</span>
+    </nav>
+
+    <div class="max-w-3xl">
+      <span class="badge badge-brand animate-fade-up">
+        <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+        {{ setting('about_badge', 'О платформе') }}
+      </span>
+
+      <h1 class="font-display text-[2.4rem] sm:text-5xl xl:text-[3.75rem] font-extrabold leading-[1.05] mt-6 animate-fade-up" style="animation-delay:.08s">
+        {% set about_title = setting('about_title', 'Единое окно цифровых сервисов колледжа') %}
+        {% set about_highlight = setting('about_highlight', 'Единое окно') %}
+        {% if about_highlight and about_highlight in about_title %}
+          {{ about_title.split(about_highlight)[0] }}<span class="brush text-gradient">{{ about_highlight }}</span>{{ about_title.split(about_highlight)[1] }}
+        {% else %}
+          {{ about_title }}
+        {% endif %}
+      </h1>
+
+      <p class="mt-6 text-lg ink-muted leading-relaxed max-w-2xl animate-fade-up" style="animation-delay:.16s">
+        {{ setting('about_subtitle', 'Раньше сервисы колледжа были разбросаны: журнал — в одном чате, библиотека — в закладках, справки — где-то на сайте. Мы собрали всё в одном месте: каталог с поиском, понятная карточка у каждого сервиса и короткий курс «как этим пользоваться».') }}
+      </p>
+
+      <div class="flex flex-wrap items-center gap-3 mt-9 animate-fade-up" style="animation-delay:.24s">
+        <a href="{{ url_for('public.services') }}" class="btn btn-primary btn-lg magnetic">
+          <i data-lucide="layout-grid"></i>
+          {{ setting('about_cta_primary', 'Открыть каталог сервисов') }}
+        </a>
+        <a href="{{ url_for('public.support') }}" class="btn btn-ghost btn-lg">
+          <i data-lucide="life-buoy"></i>
+          {{ setting('about_cta_secondary', 'Написать нам') }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ПРОБЛЕМА → РЕШЕНИЕ ══════════════════════ #}
+<section class="py-20 lg:py-24">
+  <div class="container-hub">
+
+    {% with eyebrow=setting('about_change_eyebrow', 'Зачем это нужно'), eyebrow_icon='route',
+            title=setting('about_change_title', 'Было разбросано — стало собрано'),
+            subtitle=setting('about_change_subtitle', 'Сравните, как студенты искали сервисы раньше и как это устроено сейчас.') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    {% set before_items = [
+      'Ссылка на нужный сервис находилась в чате группы — если её вообще не удалили.',
+      'Первокурсник не знал, где электронный журнал, а где заявка на справку.',
+      'У сервисов не было описания: непонятно, кому они нужны и как войти.',
+      'Кураторы объясняли одно и то же каждой новой группе заново.',
+      'Ничего нельзя было сохранить, сравнить или найти поиском.',
+    ] %}
+    {% set after_items = [
+      'Все сервисы колледжа собраны в одном каталоге с поиском и фильтрами.',
+      'У каждого сервиса — карточка: зачем он, для кого и как начать работу.',
+      'К сервисам приложены мини-курсы: уроки, советы и итоговый тест.',
+      'Нужное добавляется в избранное, прогресс обучения сохраняется.',
+      'Интерфейс на трёх языках, а всё содержимое редактируется из админки.',
+    ] %}
+
+    <div class="grid lg:grid-cols-[1fr_auto_1fr] gap-6 lg:gap-4 items-stretch">
+
+      {# ── Как было ── #}
+      <div class="card p-7 sm:p-8 reveal" style="background:var(--bg-soft);border-style:dashed">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:var(--surface-2);color:var(--ink-4);border:1px solid var(--line)">
+            <i data-lucide="unplug" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-display text-xl font-extrabold" style="color:var(--ink-2)">
+              {{ setting('about_before_title', 'Как было') }}
+            </h3>
+            <p class="text-xs ink-muted mt-0.5">{{ setting('about_before_note', 'Разрозненные ссылки и устные инструкции') }}</p>
+          </div>
+        </div>
+
+        <ul class="space-y-3.5">
+          {% for item in before_items %}
+            <li class="flex items-start gap-3">
+              <span class="grid place-items-center w-6 h-6 rounded-full flex-none mt-0.5"
+                    style="background:var(--surface-2);color:var(--ink-4);border:1px solid var(--line)">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="text-sm leading-relaxed" style="color:var(--ink-3)">{{ item }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      {# ── Стрелка перехода ── #}
+      <div class="flex lg:flex-col items-center justify-center gap-3" aria-hidden="true">
+        <span class="hidden lg:block w-px flex-1" style="background:linear-gradient(to bottom,transparent,var(--line))"></span>
+        <span class="grid place-items-center w-12 h-12 rounded-full flex-none shadow-brand"
+              style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+          <i data-lucide="arrow-right" class="w-5 h-5 lg:hidden"></i>
+          <i data-lucide="arrow-down" class="w-5 h-5 hidden lg:block"></i>
+        </span>
+        <span class="hidden lg:block w-px flex-1" style="background:linear-gradient(to top,transparent,var(--line))"></span>
+      </div>
+
+      {# ── Как стало ── #}
+      <div class="card p-7 sm:p-8 shadow-card reveal" data-reveal-delay="120"
+           style="border-color:color-mix(in srgb,var(--brand) 26%,transparent)">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-display text-xl font-extrabold">
+              {{ setting('about_after_title', 'Как стало') }}
+            </h3>
+            <p class="text-xs mt-0.5" style="color:var(--brand)">{{ setting('about_after_note', 'Один каталог, одно обучение, один вход') }}</p>
+          </div>
+        </div>
+
+        <ul class="space-y-3.5">
+          {% for item in after_items %}
+            <li class="flex items-start gap-3">
+              <span class="grid place-items-center w-6 h-6 rounded-full flex-none mt-0.5"
+                    style="background:var(--brand-50);color:var(--brand)">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="text-sm leading-relaxed" style="color:var(--ink-2)">{{ item }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ СТАТИСТИКА ══════════════════════ #}
+<section class="pb-20 lg:pb-24">
+  <div class="container-hub">
+    {% set stat_items = [
+      ('layout-grid', stats.services, 'сервисов в каталоге'),
+      ('folder-tree', stats.categories, 'категорий'),
+      ('graduation-cap', stats.courses, 'мини-курсов'),
+      ('book-open', stats.lessons, 'пошаговых уроков'),
+    ] %}
+    {% set stats_total = stats.services + stats.categories + stats.courses + stats.lessons %}
+
+    <div class="card shadow-lift p-6 sm:p-8 reveal">
+      {% if stats_total %}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {% for icon, value, label in stat_items %}
+            <div class="flex items-center gap-4">
+              <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+                    style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+                <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+              </span>
+              <span class="leading-tight min-w-0">
+                <span class="block font-display text-3xl font-extrabold">
+                  <span data-count="{{ value }}">0</span>
+                </span>
+                <span class="block text-xs ink-muted mt-0.5">{{ label }}</span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-8">
+          <span class="grid place-items-center w-16 h-16 rounded-full mx-auto mb-5"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="search-x" class="w-7 h-7"></i>
+          </span>
+          <h3 class="font-display text-xl font-extrabold">Пока пусто</h3>
+          <p class="mt-2 text-sm ink-muted max-w-md mx-auto leading-relaxed">
+            Каталог ещё наполняется — сервисы и курсы появятся здесь совсем скоро.
+            Загляните позже или напишите нам, какой сервис добавить первым.
+          </p>
+          <a href="{{ url_for('public.support') }}" class="btn btn-primary btn-sm mt-6">
+            <i data-lucide="send"></i> Предложить сервис
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ЧТО ВНУТРИ ══════════════════════ #}
+<section class="py-20 lg:py-24 border-y" style="border-color:var(--line);background:var(--bg-soft)">
+  <div class="container-hub">
+
+    <div class="text-center max-w-2xl mx-auto mb-12">
+      <span class="badge badge-brand mb-4 reveal">
+        <i data-lucide="blocks" class="w-3.5 h-3.5"></i>
+        {{ setting('about_features_eyebrow', 'Возможности') }}
+      </span>
+      <h2 class="font-display text-3xl sm:text-4xl font-extrabold leading-[1.15] reveal" data-reveal-delay="60">
+        {{ setting('about_features_title', 'Что внутри платформы') }}
+      </h2>
+      <p class="mt-4 text-base ink-muted leading-relaxed reveal" data-reveal-delay="120">
+        {{ setting('about_features_subtitle', 'Шесть частей, из которых собран Caspian College Hub — от каталога до админки.') }}
+      </p>
+    </div>
+
+    {% set features = [
+      ('layout-grid', 'Каталог сервисов',
+       'Все цифровые сервисы колледжа с поиском, фильтрами по категориям и понятным статусом: работает, бета или на техработах.'),
+      ('graduation-cap', 'Мини-курсы',
+       'К каждому сервису прилагается короткий курс из модулей и уроков: скриншоты, шаги и советы вместо длинных инструкций.'),
+      ('trophy', 'Тесты и сертификаты',
+       'После курса — итоговый тест. Набрали проходной балл — получаете именной сертификат с проверочным кодом.'),
+      ('heart', 'Избранное и прогресс',
+       'Сохраняйте нужные сервисы в избранное, а пройденные уроки отмечайте — прогресс всегда виден в личном кабинете.'),
+      ('languages', 'Три языка: RU / KK / EN',
+       'Интерфейс и всё содержимое — на русском, казахском и английском. Язык переключается одной кнопкой в шапке.'),
+      ('settings-2', 'Управление из админки',
+       'Сервисы, курсы, новости, меню, тексты и цвета редактируются без программиста — прямо в панели управления.'),
+    ] %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {% for icon, title, text in features %}
+        <article class="card card-hover svc-card h-full p-7 reveal"
+                 data-reveal-delay="{{ loop.index0 * 70 }}"
+                 style="--glow:{{ 'var(--brand)' if loop.index0 % 2 == 0 else 'var(--brand-2)' }}">
+          <span class="svc-icon mb-5">
+            <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+          </span>
+          <h3 class="font-display font-bold text-lg leading-snug mb-2.5">{{ title }}</h3>
+          <p class="text-sm ink-muted leading-relaxed">{{ text }}</p>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ТЕХНОЛОГИИ ══════════════════════ #}
+<section class="py-16 lg:py-20">
+  <div class="container-hub">
+    <div class="flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-12">
+
+      <div class="lg:max-w-xs flex-none">
+        <span class="badge badge-slate mb-4 reveal">
+          <i data-lucide="file-code-2" class="w-3.5 h-3.5"></i>
+          {{ setting('about_tech_eyebrow', 'Под капотом') }}
+        </span>
+        <h2 class="font-display text-2xl sm:text-3xl font-extrabold leading-tight reveal" data-reveal-delay="60">
+          {{ setting('about_tech_title', 'На чём это работает') }}
+        </h2>
+        <p class="mt-3 text-sm ink-muted leading-relaxed reveal" data-reveal-delay="120">
+          {{ setting('about_tech_subtitle', 'Лёгкий стек без лишних зависимостей: платформа запускается на обычном сервере колледжа.') }}
+        </p>
+      </div>
+
+      {% set tech = [
+        ('flask-conical', 'Flask'),
+        ('database', 'SQLite'),
+        ('layers', 'SQLAlchemy'),
+        ('wind', 'Tailwind CSS'),
+        ('mountain', 'Alpine.js'),
+        ('wand-sparkles', 'GSAP'),
+        ('gallery-horizontal-end', 'Swiper'),
+        ('bar-chart-3', 'Chart.js'),
+      ] %}
+
+      <ul class="flex flex-wrap gap-2.5 reveal" data-reveal-delay="160">
+        {% for icon, name in tech %}
+          <li>
+            <span class="chip">
+              <i data-lucide="{{ icon }}" class="w-4 h-4"></i>
+              {{ name }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ О КОЛЛЕДЖЕ ══════════════════════ #}
+<section class="pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="card overflow-hidden shadow-card reveal">
+      <div class="grid lg:grid-cols-12">
+
+        {# Логотип #}
+        <div class="lg:col-span-4 p-8 sm:p-10 flex flex-col items-center justify-center text-center gap-5 border-b lg:border-b-0 lg:border-r"
+             style="border-color:var(--line);background:linear-gradient(160deg,var(--brand-50),transparent 70%)">
+          <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo.png') }}"
+               alt="Логотип Колледжа Каспийского университета"
+               class="w-28 h-28 object-contain float" width="112" height="112">
+          <div>
+            <p class="font-display text-lg font-extrabold leading-tight">
+              {{ setting('college_name', 'Колледж Каспийского университета') }}
+            </p>
+            <p class="text-xs ink-muted mt-1.5">
+              {{ setting('college_short', 'Caspian University College, Алматы') }}
+            </p>
+          </div>
+        </div>
+
+        {# Текст #}
+        <div class="lg:col-span-8 p-8 sm:p-10">
+          <span class="badge badge-brand mb-4">
+            <i data-lucide="building-2" class="w-3.5 h-3.5"></i>
+            {{ setting('about_college_eyebrow', 'О колледже') }}
+          </span>
+
+          <h2 class="font-display text-2xl sm:text-3xl font-extrabold leading-tight">
+            {{ setting('about_college_title', 'Платформу сделали для студентов и преподавателей колледжа') }}
+          </h2>
+
+          <p class="mt-4 text-base ink-muted leading-relaxed max-w-2xl">
+            {{ setting('about_college_text', 'Колледж Каспийского университета готовит специалистов среднего звена в Алматы и помогает выпускникам продолжить обучение в университете. Обучение построено на практике: студенты работают с теми же цифровыми сервисами, что и сотрудники колледжа, — именно поэтому все они собраны здесь, в одном окне.') }}
+          </p>
+
+          {% set specialties = [
+            'Маркетинг', 'Менеджмент', 'Учёт и аудит', 'Гостиничный бизнес',
+            'Туризм', 'Правоведение', 'Переводческое дело', 'Программное обеспечение',
+          ] %}
+
+          <p class="text-xs font-semibold uppercase tracking-wide mt-8 mb-3" style="color:var(--ink-4)">
+            {{ setting('about_specialties_title', 'Специальности') }}
+          </p>
+          <ul class="flex flex-wrap gap-2">
+            {% for item in specialties %}
+              <li>
+                <span class="badge badge-slate">{{ item }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 mt-8 pt-6 border-t text-sm" style="border-color:var(--line)">
+            <span class="inline-flex items-center gap-2 ink-muted">
+              <i data-lucide="map-pin" class="w-4 h-4" style="color:var(--brand)"></i>
+              {{ setting('contact_address', 'г. Алматы, проспект Сейфуллина, 521') }}
+            </span>
+            <a href="{{ setting('college_url', 'https://ccu.edu.kz') }}" target="_blank" rel="noopener"
+               class="btn btn-soft btn-sm">
+              <i data-lucide="external-link"></i>
+              {{ setting('about_college_link_label', 'Сайт колледжа') }}
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ПРИЗЫВ ══════════════════════ #}
+<section class="pb-24">
+  <div class="container-hub">
+    <div class="relative overflow-hidden rounded-[var(--r-2xl)] grain shadow-hero reveal"
+         style="background:linear-gradient(135deg,var(--brand) 0%,var(--brand-600) 45%,var(--brand-2) 100%)">
+      <div class="absolute inset-0 opacity-25"
+           style="background:radial-gradient(circle at 15% 20%,rgba(255,255,255,.55),transparent 42%),radial-gradient(circle at 85% 80%,rgba(255,255,255,.35),transparent 45%)"></div>
+
+      <div class="relative z-10 px-8 py-16 sm:px-14 sm:py-20 text-center text-white">
+        <h2 class="font-display text-3xl sm:text-5xl font-extrabold leading-tight max-w-3xl mx-auto">
+          {{ setting('about_final_title', 'Начните с каталога — остальное подскажет платформа') }}
+        </h2>
+        <p class="mt-5 text-base sm:text-lg opacity-90 max-w-xl mx-auto leading-relaxed">
+          {{ setting('about_final_text', 'Посмотрите, какие сервисы уже собраны, а с аккаунтом сможете сохранять избранное, проходить мини-курсы и получать сертификаты.') }}
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-9">
+          <a href="{{ url_for('public.services') }}" class="btn btn-lg magnetic" style="background:#fff;color:var(--brand-700)">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('account.dashboard') }}" class="btn btn-lg"
+               style="background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.3);backdrop-filter:blur(8px)">
+              <i data-lucide="layout-dashboard"></i>
+              {{ t('nav.account') }}
+            </a>
+          {% else %}
+            <a href="{{ url_for('auth.register') }}" class="btn btn-lg"
+               style="background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.3);backdrop-filter:blur(8px)">
+              <i data-lucide="user-plus"></i>
+              {{ setting('about_final_cta', 'Создать аккаунт') }}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

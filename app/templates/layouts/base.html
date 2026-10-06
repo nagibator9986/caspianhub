@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}{{ setting('site_name', 'Caspian College Hub') }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ setting('site_description', 'Единое окно цифровых сервисов Колледжа Каспийского университета') }}{% endblock %}">
+  <meta name="theme-color" content="{{ setting('brand_color', '#EB5A40') }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:site_name" content="{{ setting('site_name', 'Caspian College Hub') }}">
+  {% block og_image %}<meta property="og:image" content="{{ url_for('static', filename='img/ccu-logo.png', _external=True) }}">{% endblock %}
+
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon-180.png') }}">
+
+  <script src="{{ url_for('static', filename='vendor/tailwind.js') }}"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: 'var(--brand)', 50:'var(--brand-50)', 100:'var(--brand-100)',
+              200:'var(--brand-200)', 300:'var(--brand-300)', 400:'var(--brand-400)',
+              500:'var(--brand-500)', 600:'var(--brand-600)', 700:'var(--brand-700)', 900:'var(--brand-900)',
+            },
+            ink: 'var(--ink)', 'ink-2':'var(--ink-2)', 'ink-3':'var(--ink-3)', 'ink-4':'var(--ink-4)',
+            surface: 'var(--surface)', 'surface-2':'var(--surface-2)',
+            line: 'var(--line)', 'line-strong':'var(--line-strong)',
+            canvas: 'var(--bg)', 'canvas-soft':'var(--bg-soft)',
+          },
+          fontFamily: {
+            sans: ['Inter','ui-sans-serif','system-ui','sans-serif'],
+            display: ['Manrope','Inter','sans-serif'],
+          },
+          borderRadius: { xl:'var(--r-md)', '2xl':'var(--r-lg)', '3xl':'var(--r-xl)', '4xl':'var(--r-2xl)' },
+          boxShadow: { soft:'var(--sh-sm)', card:'var(--sh-md)', lift:'var(--sh-lg)', hero:'var(--sh-xl)', brand:'var(--sh-brand)' },
+          maxWidth: { hub: 'var(--container)' },
+        },
+      },
+    }
+  </script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/aos.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/swiper.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/notyf.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/glightbox.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+  {# Бренд-цвета из админки перекрывают токены дизайн-системы #}
+  <style>
+    :root{
+      --brand: {{ setting('brand_color', '#EB5A40') }};
+      --brand-2: {{ setting('brand_color_2', '#F9A03F') }};
+      --brand-500: {{ setting('brand_color', '#EB5A40') }};
+    }
+  </style>
+
+  {# Тема применяется до первой отрисовки — без «вспышки» белого #}
+  <script>
+    (function(){
+      try{
+        var saved = localStorage.getItem('ccu-hub-theme');
+        var dark = saved ? saved === 'dark'
+                         : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      }catch(e){}
+    })();
+  </script>
+
+  {% block head %}{% endblock %}
+</head>
+
+<body class="min-h-screen flex flex-col antialiased">
+  <div id="scroll-progress" aria-hidden="true"></div>
+
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] btn btn-primary btn-sm">
+    Перейти к содержимому
+  </a>
+
+  {% include 'partials/header.html' %}
+
+  <main id="main" class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% include 'partials/footer.html' %}
+
+  {# Флеш-сообщения → toast #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script id="flash-data" type="application/json">{{ messages | tojson_safe }}</script>
+    {% endif %}
+  {% endwith %}
+
+  <script>window.CSRF_TOKEN = "{{ csrf_token() }}";</script>
+  <script src="{{ url_for('static', filename='vendor/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/alpine-collapse.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='vendor/alpine.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='vendor/aos.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/gsap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/ScrollTrigger.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/lenis.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/swiper.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/countup.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/confetti.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/notyf.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/glightbox.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/tilt.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

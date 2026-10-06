@@ -1,0 +1,446 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% set display_name = user.full_name or user.email %}
+{% set is_self = user.id == current_user.id %}
+{% set can_edit = current_user.is_admin %}
+{% set roles = [
+  ('admin', 'Администратор', 'Полный доступ ко всей панели, включая пользователей и настройки', 'rose', 'shield-check'),
+  ('editor', 'Редактор', 'Ведёт сервисы, курсы, новости и обращения, но не трогает учётные записи', 'amber', 'pencil-line'),
+  ('student', 'Студент', 'Обычный аккаунт: обучение, избранное и сертификаты', 'sky', 'graduation-cap'),
+] %}
+{% set role_map = {'admin': ('Администратор', 'rose'), 'editor': ('Редактор', 'amber'), 'student': ('Студент', 'sky')} %}
+{% set role_label = role_map.get(user.role, ('Студент', 'sky'))[0] %}
+{% set role_color = role_map.get(user.role, ('Студент', 'sky'))[1] %}
+{% set cert_list = certificates or [] %}
+
+{% block title %}{{ display_name }}{% endblock %}
+
+{% block heading %}{{ display_name }}{% endblock %}
+
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5 truncate">
+    {{ role_label }}
+    {% if user.group_name %} · группа {{ user.group_name }}{% endif %}
+    {% if not user.is_active_flag %} · доступ приостановлен{% endif %}
+  </p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.users') }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="arrow-left"></i><span class="hidden sm:inline">К списку</span>
+  </a>
+
+  {% if can_edit and not is_self %}
+    <form method="post" action="{{ url_for('admin.user_delete', user_id=user.id) }}"
+          data-confirm="Удалить пользователя {{ user.email }}? Вместе с ним исчезнут прогресс обучения, сертификаты и избранное. Отменить не получится.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-sm" style="color:#E11D48" aria-label="Удалить пользователя">
+        <i data-lucide="trash-2"></i><span class="hidden sm:inline">Удалить</span>
+      </button>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid lg:grid-cols-12 gap-6 items-start">
+
+  {# ══════════════════ ЛЕВАЯ КОЛОНКА: КАРТОЧКА ПРОФИЛЯ ══════════════════ #}
+  <aside class="lg:col-span-4">
+    <div class="lg:sticky lg:top-24 space-y-4">
+
+      <div class="card p-6 text-center">
+        {% if user.avatar %}
+          <img src="{{ url_for('static', filename=user.avatar) }}"
+               alt="Фотография профиля: {{ display_name }}"
+               class="w-24 h-24 rounded-full object-cover mx-auto ring-4"
+               style="--tw-ring-color:var(--brand-50)">
+        {% else %}
+          <span class="w-24 h-24 rounded-full grid place-items-center mx-auto text-2xl font-display font-extrabold text-white"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2));box-shadow:var(--sh-md)"
+                aria-hidden="true">{{ user.initials }}</span>
+        {% endif %}
+
+        <h2 class="font-display font-extrabold text-lg mt-4 leading-snug break-words">{{ display_name }}</h2>
+
+        <div class="flex items-center justify-center gap-1.5 mt-2">
+          <span class="text-xs ink-muted truncate" title="{{ user.email }}">{{ user.email }}</span>
+          <button type="button" class="chip !px-1.5 !py-1 flex-none" data-copy="{{ user.email }}"
+                  aria-label="Скопировать адрес почты">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <span class="badge badge-{{ role_color }}">
+            <i data-lucide="shield" class="w-3.5 h-3.5"></i>{{ role_label }}
+          </span>
+          {% if user.is_active_flag %}
+            <span class="badge badge-emerald"><i data-lucide="check" class="w-3.5 h-3.5"></i>Активен</span>
+          {% else %}
+            <span class="badge badge-slate"><i data-lucide="pause" class="w-3.5 h-3.5"></i>Доступ закрыт</span>
+          {% endif %}
+          {% if is_self %}
+            <span class="badge badge-brand"><i data-lucide="user" class="w-3.5 h-3.5"></i>Это вы</span>
+          {% endif %}
+        </div>
+
+        {% if user.specialty %}
+          <p class="text-xs ink-muted mt-4">{{ user.specialty }}</p>
+        {% endif %}
+      </div>
+
+      {# ── метрики ── #}
+      <div class="card p-5">
+        <h3 class="font-display font-bold text-sm flex items-center gap-2 mb-4">
+          <i data-lucide="activity" class="w-4 h-4" style="color:var(--brand)"></i>Активность
+        </h3>
+
+        <div class="grid grid-cols-3 gap-2.5 text-center">
+          <div class="rounded-[var(--r-sm)] p-3" style="background:var(--surface-2)">
+            <p class="font-display font-extrabold text-xl leading-none">{{ done_lessons }}</p>
+            <p class="text-[11px] ink-muted mt-1.5">
+              {{ done_lessons | plural('урок', 'урока', 'уроков') }} пройдено
+            </p>
+          </div>
+          <div class="rounded-[var(--r-sm)] p-3" style="background:var(--surface-2)">
+            <p class="font-display font-extrabold text-xl leading-none">{{ cert_list | length }}</p>
+            <p class="text-[11px] ink-muted mt-1.5">
+              {{ cert_list | length | plural('сертификат', 'сертификата', 'сертификатов') }}
+            </p>
+          </div>
+          <div class="rounded-[var(--r-sm)] p-3" style="background:var(--surface-2)">
+            <p class="font-display font-extrabold text-xl leading-none">{{ user.favorites | length }}</p>
+            <p class="text-[11px] ink-muted mt-1.5">
+              в избранном
+            </p>
+          </div>
+        </div>
+
+        <dl class="mt-5 pt-4 space-y-3 border-t text-xs" style="border-color:var(--line)">
+          <div class="flex items-center justify-between gap-3">
+            <dt class="ink-muted flex items-center gap-1.5">
+              <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>Зарегистрирован
+            </dt>
+            <dd class="font-semibold text-right">{{ user.created_at | date_ru or '—' }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="ink-muted flex items-center gap-1.5">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i>Последний визит
+            </dt>
+            <dd class="font-semibold text-right">{{ user.last_seen | date_ru or 'пока не заходил' }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="ink-muted flex items-center gap-1.5">
+              <i data-lucide="languages" class="w-3.5 h-3.5"></i>Язык интерфейса
+            </dt>
+            <dd class="font-semibold text-right uppercase">{{ user.locale or 'ru' }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="ink-muted flex items-center gap-1.5">
+              <i data-lucide="hash" class="w-3.5 h-3.5"></i>Идентификатор
+            </dt>
+            <dd class="font-semibold text-right font-mono">#{{ user.id }}</dd>
+          </div>
+        </dl>
+
+        {% if user.bio %}
+          <div class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+            <p class="text-[11px] font-extrabold uppercase tracking-[.12em] mb-1.5" style="color:var(--ink-4)">О себе</p>
+            <p class="text-xs ink-muted leading-relaxed whitespace-pre-line">{{ user.bio }}</p>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </aside>
+
+  {# ══════════════════ ПРАВАЯ КОЛОНКА: ФОРМА И СЕРТИФИКАТЫ ══════════════════ #}
+  <div class="lg:col-span-8 space-y-6">
+
+    {% if can_edit %}
+      <form method="post" action="{{ url_for('admin.user_edit', user_id=user.id) }}" class="card p-5 sm:p-6 space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div>
+          <h2 class="font-display font-bold text-base flex items-center gap-2">
+            <i data-lucide="user-cog" class="w-4 h-4" style="color:var(--brand)"></i>Учётная запись
+          </h2>
+          <p class="text-xs ink-muted mt-0.5">
+            Почта меняется только самим пользователем в личном кабинете — здесь она остаётся неизменной.
+          </p>
+        </div>
+
+        {# ── личные данные ── #}
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div class="sm:col-span-2">
+            <label class="label" for="full_name">Имя и фамилия</label>
+            <input type="text" id="full_name" name="full_name" class="field" maxlength="160"
+                   value="{{ user.full_name or '' }}" placeholder="Например, Айгерим Сериккызы"
+                   autocomplete="off">
+            <p class="help">Показывается в кабинете, в журнале действий и в сертификатах.</p>
+          </div>
+
+          <div>
+            <label class="label" for="group_name">Учебная группа</label>
+            <input type="text" id="group_name" name="group_name" class="field" maxlength="60"
+                   value="{{ user.group_name or '' }}" placeholder="ПО-21" autocomplete="off">
+            <p class="help">Оставьте пустым для преподавателей и сотрудников.</p>
+          </div>
+
+          <div>
+            <label class="label" for="specialty">Специальность</label>
+            <input type="text" id="specialty" name="specialty" class="field" maxlength="120"
+                   value="{{ user.specialty or '' }}" placeholder="Программное обеспечение" autocomplete="off">
+            <p class="help">Помогает быстрее находить человека в списке.</p>
+          </div>
+        </div>
+
+        {# ── роль ── #}
+        <div class="pt-5 border-t" style="border-color:var(--line)">
+          <label class="label" for="role">Роль в системе</label>
+          <select id="role" name="role" class="field" aria-describedby="role-help">
+            {% for value, label, hint, color, icon in roles %}
+              <option value="{{ value }}"
+                      {% if user.role == value %}selected{% endif %}
+                      {% if is_self and value != 'admin' %}disabled{% endif %}>
+                {{ label }} — {{ hint | lower }}
+              </option>
+            {% endfor %}
+          </select>
+
+          {% if is_self %}
+            <p class="help flex items-start gap-1.5 mt-2" id="role-help">
+              <i data-lucide="lock" class="w-3.5 h-3.5 flex-none mt-px" style="color:var(--brand)"></i>
+              <span>Это ваша собственная учётная запись — снять с себя права администратора нельзя,
+                    иначе панель окажется без хозяина. Попросите другого администратора, если роль
+                    действительно нужно изменить.</span>
+            </p>
+          {% else %}
+            <p class="help mt-2" id="role-help">
+              Администратор видит всю панель, редактор работает только с содержимым,
+              студент — обычный пользователь сайта.
+            </p>
+          {% endif %}
+
+          <div class="grid sm:grid-cols-3 gap-2.5 mt-4">
+            {% for value, label, hint, color, icon in roles %}
+              <div class="rounded-[var(--r-sm)] p-3 border"
+                   style="background:{{ 'var(--brand-50)' if user.role == value else 'var(--surface-2)' }};border-color:{{ 'var(--brand-200)' if user.role == value else 'transparent' }}">
+                <p class="text-xs font-bold flex items-center gap-1.5">
+                  <i data-lucide="{{ icon }}" class="w-3.5 h-3.5" style="color:var(--brand)"></i>{{ label }}
+                </p>
+                <p class="text-[11px] ink-muted mt-1 leading-snug">{{ hint }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# ── доступ ── #}
+        <div class="pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-start justify-between gap-4">
+            <label for="is_active_flag" class="min-w-0 cursor-pointer">
+              <span class="block text-sm font-semibold">Доступ к платформе разрешён</span>
+              <span class="block text-xs ink-muted mt-0.5">
+                Если выключить, человек не сможет войти, но его прогресс, сертификаты и избранное сохранятся.
+                Это мягкая альтернатива удалению.
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="is_active_flag" name="is_active_flag"
+                     {% if user.is_active_flag %}checked{% endif %}>
+              <span></span>
+            </label>
+          </div>
+        </div>
+
+        {# ── пароль ── #}
+        <div class="pt-5 border-t" style="border-color:var(--line)">
+          <label class="label" for="new_password">Новый пароль</label>
+          <div class="relative" x-data="{ show: false }">
+            <input type="password" id="new_password" name="new_password" class="field !pr-11"
+                   minlength="6" maxlength="128" autocomplete="new-password"
+                   placeholder="Оставьте пустым, чтобы не менять"
+                   aria-describedby="password-help"
+                   x-bind:type="show ? 'text' : 'password'">
+            <button type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-7 h-7 rounded-lg transition-colors"
+                    style="color:var(--ink-4)"
+                    x-on:click="show = !show"
+                    x-bind:aria-label="show ? 'Скрыть пароль' : 'Показать пароль'"
+                    aria-label="Показать пароль">
+              <span x-show="!show"><i data-lucide="eye" class="w-4 h-4"></i></span>
+              <span x-show="show" x-cloak><i data-lucide="eye-off" class="w-4 h-4"></i></span>
+            </button>
+          </div>
+          <p class="help flex items-start gap-1.5" id="password-help">
+            <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+            <span>Не короче 6 символов. Оставьте поле пустым — текущий пароль останется прежним.
+                  После смены обязательно передайте новый пароль лично.</span>
+          </p>
+        </div>
+
+        <div class="pt-5 border-t flex flex-col sm:flex-row sm:items-center gap-3" style="border-color:var(--line)">
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="save"></i>Сохранить
+          </button>
+          <a href="{{ url_for('admin.users') }}" class="btn btn-ghost">
+            <i data-lucide="x"></i>Отменить
+          </a>
+          <p class="help sm:ml-auto sm:mt-0">Изменения применяются сразу и попадают в журнал действий.</p>
+        </div>
+      </form>
+
+    {% else %}
+      {# ── редактор видит карточку, но не меняет её ── #}
+      <div class="card p-6">
+        <div class="flex items-start gap-3">
+          <span class="w-10 h-10 rounded-xl grid place-items-center flex-none"
+                style="background:var(--surface-2);color:var(--ink-3)">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-bold text-base">Только просмотр</h2>
+            <p class="text-sm ink-muted mt-1">
+              Менять роли, пароли и доступ к платформе может только администратор.
+              Вы видите карточку целиком, но сохранить изменения не получится — напишите администратору,
+              если данные нужно поправить.
+            </p>
+          </div>
+        </div>
+
+        <dl class="grid sm:grid-cols-2 gap-4 mt-6 pt-5 border-t text-sm" style="border-color:var(--line)">
+          <div>
+            <dt class="text-xs ink-muted">Имя и фамилия</dt>
+            <dd class="font-semibold mt-0.5">{{ user.full_name or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs ink-muted">Почта</dt>
+            <dd class="font-semibold mt-0.5 break-all">{{ user.email }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs ink-muted">Учебная группа</dt>
+            <dd class="font-semibold mt-0.5">{{ user.group_name or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs ink-muted">Специальность</dt>
+            <dd class="font-semibold mt-0.5">{{ user.specialty or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs ink-muted">Роль</dt>
+            <dd class="mt-1"><span class="badge badge-{{ role_color }}">{{ role_label }}</span></dd>
+          </div>
+          <div>
+            <dt class="text-xs ink-muted">Доступ</dt>
+            <dd class="mt-1">
+              {% if user.is_active_flag %}
+                <span class="badge badge-emerald">Разрешён</span>
+              {% else %}
+                <span class="badge badge-slate">Закрыт</span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    {% endif %}
+
+    {# ══════════════════ СЕРТИФИКАТЫ ══════════════════ #}
+    <div class="card overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6 border-b" style="border-color:var(--line)">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base flex items-center gap-2">
+            <i data-lucide="award" class="w-4 h-4" style="color:var(--brand)"></i>Сертификаты пользователя
+          </h2>
+          <p class="text-xs ink-muted mt-0.5">
+            Выдаются автоматически после прохождения курса и успешного теста.
+          </p>
+        </div>
+        {% if cert_list %}
+          <span class="badge badge-brand flex-none">
+            {{ cert_list | length }} {{ cert_list | length | plural('сертификат', 'сертификата', 'сертификатов') }}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if cert_list %}
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th scope="col">Курс</th>
+                <th scope="col">Балл</th>
+                <th scope="col">Выдан</th>
+                <th scope="col">Код</th>
+                <th scope="col"><span class="sr-only">Действия</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cert in cert_list %}
+                <tr>
+                  <td>
+                    {% if cert.course %}
+                      <a href="{{ url_for('admin.course_edit', course_id=cert.course.id) }}"
+                         class="font-semibold transition-colors hover:text-[var(--brand)]">
+                        {{ cert.course.tr('title') }}
+                      </a>
+                      {% if cert.course.service %}
+                        <span class="block text-[11px] ink-muted mt-0.5">{{ cert.course.service.tr('name') }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="ink-muted">Курс удалён</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% set score = cert.score or 0 %}
+                    <span class="badge badge-{{ 'emerald' if score >= 90 else 'amber' if score >= 70 else 'slate' }}">
+                      {{ score }}%
+                    </span>
+                  </td>
+                  <td class="whitespace-nowrap">{{ cert.issued_at | date_ru or '—' }}</td>
+                  <td>
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-xs">{{ cert.code }}</span>
+                      <button type="button" class="chip !px-1.5 !py-1 flex-none" data-copy="{{ cert.code }}"
+                              aria-label="Скопировать код сертификата {{ cert.code }}">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td class="text-right">
+                    <a href="{{ url_for('learn.certificate', code=cert.code) }}" target="_blank" rel="noopener"
+                       class="btn btn-ghost btn-sm" aria-label="Открыть сертификат {{ cert.code }}">
+                      <i data-lucide="external-link"></i><span class="hidden sm:inline">Открыть</span>
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-10 text-center">
+          <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+                style="background:var(--surface-2);color:var(--ink-4)">
+            <i data-lucide="award" class="w-6 h-6"></i>
+          </span>
+          <p class="font-display font-extrabold text-base">Сертификатов пока нет</p>
+          <p class="text-sm ink-muted mt-1.5 max-w-md mx-auto">
+            {% if done_lessons %}
+              Уроки этот человек уже проходит — сертификат появится, когда курс будет завершён
+              и итоговый тест сдан на проходной балл.
+            {% else %}
+              Как только пользователь пройдёт мини-курс и сдаст итоговый тест,
+              сертификат появится здесь и в его личном кабинете.
+            {% endif %}
+          </p>
+          <div class="flex flex-wrap items-center justify-center gap-2 mt-5">
+            <a href="{{ url_for('admin.courses') }}" class="btn btn-ghost btn-sm">
+              <i data-lucide="graduation-cap"></i>Курсы платформы
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

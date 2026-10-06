@@ -1,0 +1,337 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Мини-курсы по сервисам — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Короткие курсы на 10–20 минут: как пользоваться сервисами колледжа. Пошаговые уроки, итоговый тест и сертификат.{% endblock %}
+
+{% block content %}
+
+{# ───────────── Агрегаты для статистики шапки ───────────── #}
+{% set agg = namespace(lessons=0, minutes=0) %}
+{% for item in courses %}
+  {% set agg.lessons = agg.lessons + (item.lesson_count or 0) %}
+  {% set agg.minutes = agg.minutes + (item.duration_min or 0) %}
+{% endfor %}
+{% set avg_minutes = ((agg.minutes / (courses | length)) | round | int) if courses else 0 %}
+
+{# ───────────── Прогресс пользователя: один расчёт на курс ───────────── #}
+{% set progress_map = {} %}
+{% if current_user.is_authenticated %}
+  {% for item in courses %}
+    {% set _ = progress_map.update({item.id: item.progress_for(current_user)}) %}
+  {% endfor %}
+{% endif %}
+
+{% set in_progress = [] %}
+{% set finished = [] %}
+{% for item in courses %}
+  {% set p = progress_map.get(item.id, 0) %}
+  {% if p >= 100 %}
+    {% set _ = finished.append(item) %}
+  {% elif p > 0 %}
+    {% set _ = in_progress.append(item) %}
+  {% endif %}
+{% endfor %}
+
+{% set level_badges = {'beginner': 'badge-emerald', 'intermediate': 'badge-amber', 'advanced': 'badge-rose'} %}
+
+{# ══════════════════════ ШАПКА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-14 lg:pb-16">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('nav.courses') }}</span>
+    </nav>
+
+    <div class="max-w-3xl">
+      <span class="badge badge-brand animate-fade-up">
+        <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+        {{ t('nav.courses') }}
+      </span>
+
+      <h1 class="font-display text-[2.4rem] sm:text-5xl xl:text-[3.5rem] font-extrabold leading-[1.05] mt-6 animate-fade-up" style="animation-delay:.08s">
+        Мини-курсы <span class="text-gradient">по сервисам</span>
+      </h1>
+
+      <p class="mt-6 text-lg ink-muted leading-relaxed animate-fade-up" style="animation-delay:.16s">
+        Каждый курс — это 10–20 минут спокойных пошаговых уроков: вы разберётесь, как пользоваться сервисом,
+        пройдёте короткий тест и получите именной сертификат.
+      </p>
+
+      <div class="flex flex-wrap items-center gap-3 mt-8 animate-fade-up" style="animation-delay:.24s">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('account.learning') }}" class="btn btn-primary btn-lg magnetic">
+            <i data-lucide="activity"></i>
+            {{ t('acc.my_courses') }}
+          </a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg magnetic">
+            <i data-lucide="log-in"></i>
+            {{ t('action.login') }}, чтобы сохранять прогресс
+          </a>
+        {% endif %}
+        <a href="{{ url_for('public.services') }}" class="btn btn-ghost btn-lg">
+          <i data-lucide="layout-grid"></i>
+          {{ t('action.all_services') }}
+        </a>
+      </div>
+    </div>
+
+    {# Мини-статистика #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12 max-w-3xl">
+      {% set head_stats = [
+        ('graduation-cap', courses | length, 'курс', 'курса', 'курсов', 'готовы к прохождению'),
+        ('book-open', agg.lessons, 'урок', 'урока', 'уроков', 'коротких шагов внутри'),
+        ('clock', avg_minutes, 'минута', 'минуты', 'минут', 'средняя длительность курса'),
+      ] %}
+      {% for icon, value, one, few, many, caption in head_stats %}
+        <div class="card p-5 flex items-center gap-4 reveal" data-reveal-delay="{{ loop.index0 * 80 }}">
+          <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+            <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+          </span>
+          <span class="leading-tight min-w-0">
+            <span class="block font-display text-2xl font-extrabold">
+              <span data-count="{{ value }}">0</span>
+              <span class="text-sm font-bold ink-muted">{{ value | plural(one, few, many) }}</span>
+            </span>
+            <span class="block text-xs ink-muted mt-0.5">{{ caption }}</span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ПРОДОЛЖИТЬ ОБУЧЕНИЕ ══════════════════════ #}
+{% if current_user.is_authenticated and in_progress %}
+  <section class="container-hub pt-4 pb-6">
+    {% with center=false,
+            eyebrow='Ваш прогресс',
+            eyebrow_icon='activity',
+            title='Продолжить обучение',
+            subtitle='Вы начали эти курсы — можно вернуться ровно туда, где остановились.',
+            link=url_for('account.learning'),
+            link_text=t('acc.my_courses') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for course in in_progress %}
+        {% set p = progress_map.get(course.id, 0) %}
+        {% set left = (((course.lesson_count or 0) * (100 - p)) / 100) | round(0, 'ceil') | int %}
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+           class="card card-hover svc-card group p-5 flex flex-col reveal"
+           data-reveal-delay="{{ loop.index0 % 3 * 60 }}"
+           style="--glow:{{ course.service.color if course.service else 'var(--brand)' }}"
+           aria-label="Продолжить курс «{{ course.tr('title') }}»">
+          <div class="flex items-center gap-3.5">
+            <span class="svc-icon !w-11 !h-11 !rounded-xl flex-none">
+              {% if course.service and course.service.logo %}
+                <img src="{{ url_for('static', filename=course.service.logo) }}" alt="" class="w-6 h-6 object-contain">
+              {% else %}
+                <i data-lucide="{{ course.service.icon if course.service else 'graduation-cap' }}" class="w-5 h-5"></i>
+              {% endif %}
+            </span>
+            <span class="min-w-0 flex-1">
+              {% if course.service %}
+                <span class="block text-[10px] font-bold uppercase tracking-wider truncate" style="color:var(--ink-4)">
+                  {{ course.service.tr('name') }}
+                </span>
+              {% endif %}
+              <span class="block text-sm font-bold leading-snug truncate transition-colors group-hover:text-[var(--brand)]">
+                {{ course.tr('title') }}
+              </span>
+            </span>
+            <i data-lucide="arrow-right" class="w-4 h-4 flex-none transition-transform duration-300 group-hover:translate-x-1" style="color:var(--ink-4)"></i>
+          </div>
+
+          <div class="mt-4">
+            <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+              <span class="ink-muted">{{ t('learn.progress') }}</span>
+              <span style="color:var(--brand)">{{ p }}%</span>
+            </div>
+            <div class="progress"><div class="progress__bar" style="width:{{ p }}%"></div></div>
+            <p class="text-[11px] ink-muted mt-2">
+              {% if left > 0 %}
+                Осталось {{ left }} {{ left | plural('урок', 'урока', 'уроков') }}
+              {% else %}
+                Почти готово — загляните в курс
+              {% endif %}
+            </p>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if finished %}
+      <p class="flex items-center gap-2 text-sm ink-muted mt-6">
+        <i data-lucide="badge-check" class="w-4 h-4 flex-none" style="color:#10B981"></i>
+        Уже пройдено {{ finished | length }} {{ finished | length | plural('курс', 'курса', 'курсов') }} —
+        сертификаты ждут вас в разделе
+        <a href="{{ url_for('account.certificates') }}" class="font-semibold hover:underline" style="color:var(--brand)">{{ t('acc.certificates') }}</a>.
+      </p>
+    {% endif %}
+  </section>
+{% endif %}
+
+{# ══════════════════════ КАТАЛОГ КУРСОВ ══════════════════════ #}
+<section class="container-hub pt-8 pb-20">
+  {% if courses %}
+    {% with center=false,
+            eyebrow='Каталог',
+            eyebrow_icon='library',
+            title='Все мини-курсы',
+            subtitle='Выберите сервис, с которым хотите разобраться. Курсы можно проходить в любом порядке.',
+            link=url_for('public.services'),
+            link_text=t('action.all_services') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for course in courses %}
+        {% set p = progress_map.get(course.id, 0) %}
+        {% set outcomes = course.outcome_list()[:3] %}
+        {% set lessons_total = course.lesson_count or 0 %}
+        <article class="card card-hover svc-card group flex flex-col h-full p-6 reveal"
+                 data-reveal-delay="{{ loop.index0 % 3 * 60 }}"
+                 style="--glow:{{ course.service.color if course.service else 'var(--brand)' }}">
+
+          <div class="flex items-start justify-between gap-3 mb-5">
+            <span class="svc-icon">
+              {% if course.service and course.service.logo %}
+                <img src="{{ url_for('static', filename=course.service.logo) }}" alt="" class="w-8 h-8 object-contain">
+              {% else %}
+                <i data-lucide="{{ course.service.icon if course.service else 'graduation-cap' }}" class="w-6 h-6"></i>
+              {% endif %}
+            </span>
+            <span class="flex flex-wrap items-center justify-end gap-1.5">
+              {% if p >= 100 %}
+                <span class="badge badge-emerald"><i data-lucide="check" class="w-3 h-3"></i>{{ t('learn.done') }}</span>
+              {% endif %}
+              <span class="badge {{ level_badges.get(course.level, 'badge-slate') }}">{{ course.level_label }}</span>
+            </span>
+          </div>
+
+          {% if course.service %}
+            <a href="{{ url_for('public.service_detail', slug=course.service.slug) }}"
+               class="relative z-20 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider mb-1.5 w-fit transition-colors hover:text-[var(--brand)]"
+               style="color:var(--ink-4)">
+              <i data-lucide="app-window" class="w-3 h-3"></i>
+              {{ course.service.tr('name') }}
+            </a>
+          {% endif %}
+
+          <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+            {{ course.tr('title') }}
+          </h3>
+
+          <p class="text-sm ink-muted leading-relaxed">
+            {{ course.tr('summary') | excerpt(130) or 'Короткий курс: шаг за шагом показываем, как пользоваться сервисом.' }}
+          </p>
+
+          {% if outcomes %}
+            <ul class="space-y-2 mt-4">
+              {% for outcome in outcomes %}
+                <li class="flex items-start gap-2 text-[13px] leading-snug">
+                  <i data-lucide="check" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+                  <span>{{ outcome }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% elif course.certificate_enabled %}
+            <p class="flex items-start gap-2 text-[13px] leading-snug mt-4 ink-muted">
+              <i data-lucide="award" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+              <span>После итогового теста вы получите именной сертификат.</span>
+            </p>
+          {% endif %}
+
+          {% if current_user.is_authenticated and p > 0 %}
+            <div class="mt-5">
+              <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+                <span class="ink-muted">{{ t('learn.progress') }}</span>
+                <span style="color:var(--brand)">{{ p }}%</span>
+              </div>
+              <div class="progress"><div class="progress__bar" style="width:{{ p }}%"></div></div>
+            </div>
+          {% endif %}
+
+          <div class="flex items-center justify-between gap-3 mt-auto pt-4 border-t" style="border-color:var(--line)">
+            <span class="flex items-center gap-3 text-xs font-semibold" style="color:var(--ink-3)">
+              <span class="inline-flex items-center gap-1.5">
+                <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                {{ lessons_total }} {{ lessons_total | plural('урок', 'урока', 'уроков') }}
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                {{ course.duration_min or 0 }} {{ t('learn.minutes') }}
+              </span>
+            </span>
+            <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+               class="text-xs font-bold inline-flex items-center gap-1 transition-colors group-hover:text-[var(--brand)] before:absolute before:inset-0 before:z-10"
+               style="color:var(--ink-3)"
+               aria-label="{{ 'Продолжить курс' if p > 0 else 'Открыть курс' }} «{{ course.tr('title') }}»">
+              {{ t('action.continue') if p > 0 else t('action.start_course') }}
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"></i>
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    {% if not current_user.is_authenticated %}
+      <div class="card p-6 sm:p-8 mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 reveal"
+           style="background:linear-gradient(135deg,var(--brand-50),var(--surface))">
+        <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+              style="background:var(--surface);color:var(--brand)">
+          <i data-lucide="award" class="w-6 h-6"></i>
+        </span>
+        <div class="flex-1 min-w-0">
+          <h2 class="font-display text-lg font-extrabold">Войдите — и прогресс сохранится</h2>
+          <p class="text-sm ink-muted mt-1 leading-relaxed">
+            Мы запомним пройденные уроки, результаты теста и выдадим сертификат с проверочным кодом.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2.5 flex-none">
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+            <i data-lucide="log-in"></i>
+            {{ t('action.login') }}
+          </a>
+          <a href="{{ url_for('auth.register') }}" class="btn btn-ghost">
+            {{ t('action.register') }}
+          </a>
+        </div>
+      </div>
+    {% endif %}
+
+  {% else %}
+    {# ── Пустое состояние ── #}
+    <div class="card p-10 sm:p-14 text-center max-w-xl mx-auto reveal">
+      <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-6"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+      </span>
+      <h2 class="font-display text-xl sm:text-2xl font-extrabold">{{ t('common.empty') }}: курсы ещё готовятся</h2>
+      <p class="mt-3 text-sm ink-muted leading-relaxed">
+        Мы записываем первые мини-курсы по сервисам колледжа. А пока откройте каталог —
+        у каждого сервиса есть понятное описание и инструкция «как этим пользоваться».
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-7">
+        <a href="{{ url_for('public.services') }}" class="btn btn-primary">
+          <i data-lucide="layout-grid"></i>
+          {{ t('action.all_services') }}
+        </a>
+        <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+          <i data-lucide="life-buoy"></i>
+          {{ t('nav.help') }}
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</section>
+
+{% endblock %}

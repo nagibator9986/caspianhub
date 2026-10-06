@@ -1,0 +1,216 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ category.tr('name') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ category.tr('description') or ('Сервисы категории «' ~ category.tr('name') ~ '» в едином окне Колледжа Каспийского университета.') }}{% endblock %}
+
+{% block content %}
+{% set service_count = services | length %}
+{% set course_count = services | selectattr('has_course') | list | length %}
+{% set live_count = services | selectattr('status', 'equalto', 'active') | list | length %}
+
+{# ══════════════════════ ШАПКА КАТЕГОРИИ ══════════════════════ #}
+<section class="relative overflow-hidden grain" style="--glow:{{ category.color }}">
+  <div class="absolute inset-0 pointer-events-none"
+       style="background:radial-gradient(1100px circle at 20% -10%, {{ category.color }}26, transparent 62%)"></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-14 lg:pb-16">
+
+    {# Хлебные крошки #}
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Главная</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <a href="{{ url_for('public.services') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Сервисы</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold" aria-current="page">{{ category.tr('name') }}</span>
+    </nav>
+
+    <div class="flex flex-col sm:flex-row sm:items-start gap-5 sm:gap-6">
+      <span class="svc-icon !w-[4.5rem] !h-[4.5rem] !rounded-2xl flex-none animate-fade-up" aria-hidden="true">
+        <i data-lucide="{{ category.icon or 'layout-grid' }}" class="w-8 h-8"></i>
+      </span>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="badge" style="background:color-mix(in srgb,{{ category.color }} 12%,transparent);color:{{ category.color }};border-color:color-mix(in srgb,{{ category.color }} 26%,transparent)">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+            Категория
+          </span>
+          <span class="badge badge-slate">
+            <i data-lucide="layout-grid" class="w-3 h-3"></i>
+            {{ service_count }} {{ service_count | plural('сервис', 'сервиса', 'сервисов') }}
+          </span>
+          {% if live_count %}
+            <span class="badge badge-emerald">
+              <span class="pulse-dot"></span>
+              {{ live_count }} {{ live_count | plural('работает', 'работают', 'работают') }}
+            </span>
+          {% endif %}
+          {% if course_count %}
+            <span class="badge badge-brand">
+              <i data-lucide="graduation-cap" class="w-3 h-3"></i>
+              {{ course_count }} {{ course_count | plural('мини-курс', 'мини-курса', 'мини-курсов') }}
+            </span>
+          {% endif %}
+        </div>
+
+        <h1 class="font-display text-3xl sm:text-4xl xl:text-[2.85rem] font-extrabold leading-[1.1] animate-fade-up"
+            style="animation-delay:.06s">
+          {{ category.tr('name') }}
+        </h1>
+
+        {% if category.tr('description') %}
+          <p class="mt-4 text-lg ink-muted leading-relaxed max-w-2xl animate-fade-up" style="animation-delay:.12s">
+            {{ category.tr('description') }}
+          </p>
+        {% else %}
+          <p class="mt-4 text-lg ink-muted leading-relaxed max-w-2xl animate-fade-up" style="animation-delay:.12s">
+            Все сервисы этого раздела собраны на одной странице — откройте карточку, чтобы узнать подробности и пройти короткое обучение.
+          </p>
+        {% endif %}
+
+        <div class="flex flex-wrap items-center gap-3 mt-8 animate-fade-up" style="animation-delay:.18s">
+          <a href="#services" class="btn btn-primary magnetic">
+            <i data-lucide="arrow-down"></i>
+            Смотреть сервисы
+          </a>
+          <a href="{{ url_for('public.services') }}" class="btn btn-ghost">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ПЕРЕКЛЮЧЕНИЕ КАТЕГОРИЙ ══════════════════════ #}
+{% if categories %}
+<section class="sticky top-[var(--nav-h)] z-40 py-4 border-y backdrop-blur-xl"
+         style="border-color:var(--line);background:color-mix(in srgb,var(--bg) 82%,transparent)">
+  <div class="container-hub">
+    <div class="flex items-center gap-3">
+      <span class="hidden lg:inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider flex-none"
+            style="color:var(--ink-4)">
+        <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+        Разделы
+      </span>
+
+      <div class="flex-1 min-w-0 overflow-x-auto -mx-5 px-5 md:-mx-8 md:px-8 lg:mx-0 lg:px-0">
+        <div class="flex items-center gap-2 w-max lg:w-auto lg:flex-wrap" role="list">
+          <a href="{{ url_for('public.services') }}" class="chip flex-none" role="listitem">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+            {{ t('action.all_services') }}
+          </a>
+          {% for cat in categories %}
+            <a href="{{ url_for('public.category', slug=cat.slug) }}"
+               class="chip flex-none {% if cat.id == category.id %}is-active{% endif %}"
+               role="listitem"
+               {% if cat.id == category.id %}aria-current="page"{% endif %}>
+              <i data-lucide="{{ cat.icon or 'layout-grid' }}" class="w-4 h-4"></i>
+              {{ cat.tr('name') }}
+              <span class="text-[11px] font-bold opacity-70">{{ cat.active_services | length }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════ СЕРВИСЫ КАТЕГОРИИ ══════════════════════ #}
+<section id="services" class="py-16 lg:py-20" style="scroll-margin-top:calc(var(--nav-h) + 5.5rem)">
+  <div class="container-hub">
+
+    {% if services %}
+      <div class="flex flex-wrap items-end justify-between gap-5 mb-10">
+        <div class="max-w-2xl">
+          <h2 class="font-display text-2xl sm:text-3xl font-extrabold leading-tight reveal">
+            Сервисы раздела
+          </h2>
+          <p class="mt-3 text-sm ink-muted leading-relaxed reveal" data-reveal-delay="80">
+            Мы собрали здесь {{ service_count }} {{ service_count | plural('сервис', 'сервиса', 'сервисов') }}.
+            В каждой карточке — описание, ответы на частые вопросы и ссылка на вход.
+          </p>
+        </div>
+        <a href="{{ url_for('public.services') }}" class="btn btn-ghost btn-sm reveal flex-none" data-reveal-delay="120">
+          Поиск по каталогу
+          <i data-lucide="search"></i>
+        </a>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for service in services %}
+          <div class="reveal" data-reveal-delay="{{ loop.index0 * 60 }}">
+            {% include 'partials/service_card.html' %}
+          </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      {# ── Пустое состояние ── #}
+      <div class="card p-10 sm:p-14 text-center max-w-2xl mx-auto reveal" style="--glow:{{ category.color }}">
+        <span class="w-16 h-16 mx-auto grid place-items-center rounded-2xl mb-6"
+              style="background:color-mix(in srgb,{{ category.color }} 12%,transparent);color:{{ category.color }}">
+          <i data-lucide="package-open" class="w-7 h-7"></i>
+        </span>
+        <h2 class="font-display text-xl sm:text-2xl font-extrabold leading-tight">
+          В этом разделе пока пусто
+        </h2>
+        <p class="mt-3 text-sm ink-muted leading-relaxed max-w-md mx-auto">
+          Категория «{{ category.tr('name') }}» уже создана, но сервисы в неё ещё не добавили.
+          Загляните в общий каталог — нужный инструмент наверняка найдётся в соседнем разделе.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-8">
+          <a href="{{ url_for('public.services') }}" class="btn btn-primary">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+          <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+            <i data-lucide="life-buoy"></i>
+            Написать в поддержку
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{# ══════════════════════ ПРИЗЫВ ══════════════════════ #}
+<section class="pb-24">
+  <div class="container-hub">
+    <div class="relative overflow-hidden rounded-[var(--r-2xl)] grain shadow-hero reveal"
+         style="background:linear-gradient(135deg,{{ category.color }} 0%,color-mix(in srgb,{{ category.color }} 58%,var(--brand-2)) 100%)">
+      <div class="absolute inset-0 opacity-25 pointer-events-none"
+           style="background:radial-gradient(circle at 15% 20%,rgba(255,255,255,.55),transparent 42%),radial-gradient(circle at 85% 80%,rgba(255,255,255,.35),transparent 45%)"></div>
+
+      <div class="relative z-10 px-8 py-14 sm:px-14 sm:py-16 text-center text-white">
+        <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold mb-5"
+              style="background:rgba(255,255,255,.18);backdrop-filter:blur(8px)">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          Не только этот раздел
+        </span>
+        <h2 class="font-display text-2xl sm:text-4xl font-extrabold leading-tight max-w-2xl mx-auto">
+          В экосистеме колледжа есть и другие сервисы
+        </h2>
+        <p class="mt-4 text-base sm:text-lg opacity-90 max-w-xl mx-auto leading-relaxed">
+          Расписание, обучение, документы, поддержка — всё в одном каталоге с поиском и фильтрами.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-8">
+          <a href="{{ url_for('public.services') }}" class="btn btn-lg magnetic"
+             style="background:#fff;color:{{ category.color }}">
+            <i data-lucide="layout-grid"></i>
+            Посмотреть все сервисы
+          </a>
+          <a href="{{ url_for('public.courses') }}" class="btn btn-lg"
+             style="background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.3);backdrop-filter:blur(8px)">
+            <i data-lucide="graduation-cap"></i>
+            Мини-курсы
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

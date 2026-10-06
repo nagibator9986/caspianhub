@@ -1,0 +1,339 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Пользователи{% endblock %}
+{% block heading %}Пользователи{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Роли, доступ и учебный прогресс участников платформы</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.audit_log') }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="scroll-text"></i><span class="hidden sm:inline">Журнал действий</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{% set total = users | length %}
+{% set admins = users | selectattr('role', 'equalto', 'admin') | list | length %}
+{% set editors = users | selectattr('role', 'equalto', 'editor') | list | length %}
+{% set students = users | selectattr('role', 'equalto', 'student') | list | length %}
+{% set blocked = users | rejectattr('is_active') | list | length %}
+{% set is_filtered = true if (q or role) else false %}
+{% set role_options = [
+  ('admin', 'Администратор', 'Администраторы', 'rose', 'shield-check'),
+  ('editor', 'Редактор', 'Редакторы', 'amber', 'pencil-ruler'),
+  ('student', 'Студент', 'Студенты', 'sky', 'graduation-cap')
+] %}
+
+{# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  {% set metrics = [
+    ('users', total, 'всего людей', 'в текущей выборке', '#EB5A40'),
+    ('shield-check', admins, 'администраторов', 'полный доступ', '#F43F5E'),
+    ('pencil-ruler', editors, 'редакторов', 'правят содержимое', '#F59E0B'),
+    ('graduation-cap', students, 'студентов', 'учатся на курсах', '#0EA5E9'),
+    ('user-x', blocked, 'заблокировано', 'вход закрыт', '#78716C')
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{# ══════════════════ ФИЛЬТРЫ ══════════════════ #}
+<div class="card p-4 sm:p-5 mb-6">
+  <form method="get" action="{{ url_for('admin.users') }}" role="search" aria-label="Поиск пользователей">
+    {% if role %}
+      <input type="hidden" name="role" value="{{ role }}">
+    {% endif %}
+    <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div>
+        <label class="label" for="filter-q">Поиск по имени или почте</label>
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+             style="color:var(--ink-4)"></i>
+          <input type="search" id="filter-q" name="q" value="{{ q or '' }}"
+                 class="field !pl-10" placeholder="Например, Айгерим или @ccu.edu.kz" autocomplete="off">
+        </div>
+      </div>
+      <div class="flex items-end gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-1 sm:flex-none">
+          <i data-lucide="filter"></i>Найти
+        </button>
+        {% if is_filtered %}
+          <a href="{{ url_for('admin.users') }}" class="btn btn-ghost btn-sm flex-1 sm:flex-none">
+            <i data-lucide="rotate-ccw"></i>Сбросить
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
+  {# ── чипы по ролям (ссылки, сохраняют текст поиска) ── #}
+  <div class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+    <p class="label !mb-2">Роль</p>
+    <div class="flex flex-wrap gap-2" role="list">
+      <a href="{{ url_for('admin.users', q=q or none) }}"
+         class="chip {{ 'is-active' if not role }}"
+         role="listitem" {% if not role %}aria-current="true"{% endif %}>
+        <i data-lucide="users" class="w-3.5 h-3.5"></i>Все роли
+      </a>
+      {% for value, single, plural_label, tone, icon in role_options %}
+        <a href="{{ url_for('admin.users', role=value, q=q or none) }}"
+           class="chip {{ 'is-active' if role == value }}"
+           role="listitem" {% if role == value %}aria-current="true"{% endif %}>
+          <i data-lucide="{{ icon }}" class="w-3.5 h-3.5"></i>{{ plural_label }}
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if is_filtered %}
+      <p class="help mt-3 flex items-start gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+        <span>
+          Показаны только подходящие записи{% if q %}: «{{ q }}»{% endif %}{% if role %}{% for value, single, plural_label, tone, icon in role_options %}{% if role == value %}{{ ', роль — ' ~ plural_label | lower }}{% endif %}{% endfor %}{% endif %}.
+          Метрики выше тоже считаются по этой выборке.
+        </span>
+      </p>
+    {% endif %}
+  </div>
+</div>
+
+{# ══════════════════ ТАБЛИЦА ══════════════════ #}
+{% if users %}
+  <div class="card overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+      <div class="min-w-0">
+        <h2 class="font-display font-bold text-base">Список участников</h2>
+        <p class="text-xs ink-muted mt-0.5">
+          {{ total }} {{ total | plural('человек', 'человека', 'человек') }} в списке — новые сверху
+        </p>
+      </div>
+      {% if blocked %}
+        <span class="badge badge-slate">
+          <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+          {{ blocked }} {{ blocked | plural('заблокирован', 'заблокированы', 'заблокированы') }}
+        </span>
+      {% endif %}
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="tbl min-w-[68rem]">
+        <thead>
+          <tr>
+            <th>Пользователь</th>
+            <th>Роль</th>
+            <th>Группа и специальность</th>
+            <th class="text-right">Уроки</th>
+            <th class="text-right">Сертификаты</th>
+            <th>Статус</th>
+            <th>Регистрация</th>
+            <th class="text-right">Действия</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for user in users %}
+            {% set done_lessons = user.progress | selectattr('completed') | list | length %}
+            {% set cert_count = user.certificates | length %}
+            {% set user_title = user.full_name or user.email %}
+            <tr>
+              {# ── аватар + имя + почта ── #}
+              <td>
+                <a href="{{ url_for('admin.user_edit', user_id=user.id) }}"
+                   class="flex items-center gap-3 group min-w-0">
+                  {% if user.avatar %}
+                    <img src="{{ url_for('static', filename=user.avatar) }}"
+                         alt="Фото профиля: {{ user_title }}"
+                         class="w-10 h-10 rounded-full object-cover flex-none"
+                         style="border:1px solid var(--line)" loading="lazy">
+                  {% else %}
+                    <span class="w-10 h-10 rounded-full grid place-items-center text-[12px] font-bold text-white flex-none"
+                          style="background:linear-gradient(135deg,var(--brand),var(--brand-2))"
+                          aria-hidden="true">{{ user.initials }}</span>
+                  {% endif %}
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate max-w-[16rem] transition-colors group-hover:text-[var(--brand)]"
+                          style="color:var(--ink)">
+                      {{ user_title }}
+                    </span>
+                    <span class="block text-[11px] truncate max-w-[16rem]" style="color:var(--ink-4)">
+                      {{ user.email }}
+                    </span>
+                  </span>
+                  {% if current_user.is_authenticated and user.id == current_user.id %}
+                    <span class="badge badge-brand flex-none !text-[10px]">это вы</span>
+                  {% endif %}
+                </a>
+              </td>
+
+              {# ── роль ── #}
+              <td>
+                {% if user.role == 'admin' %}
+                  <span class="badge badge-rose"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Администратор</span>
+                {% elif user.role == 'editor' %}
+                  <span class="badge badge-amber"><i data-lucide="pencil-ruler" class="w-3.5 h-3.5"></i>Редактор</span>
+                {% else %}
+                  <span class="badge badge-sky"><i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>Студент</span>
+                {% endif %}
+              </td>
+
+              {# ── группа и специальность ── #}
+              <td>
+                {% if user.group_name or user.specialty %}
+                  <span class="block text-xs font-semibold" style="color:var(--ink)">
+                    {{ user.group_name or 'Группа не указана' }}
+                  </span>
+                  <span class="block text-[11px] truncate max-w-[14rem]" style="color:var(--ink-4)">
+                    {{ user.specialty or 'Специальность не указана' }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">Не заполнено</span>
+                {% endif %}
+              </td>
+
+              {# ── пройдено уроков ── #}
+              <td class="text-right">
+                {% if done_lessons %}
+                  <span class="inline-flex items-center gap-1.5 tabular-nums text-xs font-semibold"
+                        title="Пройдено уроков: {{ done_lessons }}">
+                    <i data-lucide="circle-check-big" class="w-3.5 h-3.5" style="color:#10B981"></i>{{ done_lessons }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)" title="Уроки ещё не пройдены">0</span>
+                {% endif %}
+              </td>
+
+              {# ── сертификаты ── #}
+              <td class="text-right">
+                {% if cert_count %}
+                  <span class="inline-flex items-center gap-1.5 tabular-nums text-xs font-semibold"
+                        style="color:var(--brand)" title="Выдано сертификатов: {{ cert_count }}">
+                    <i data-lucide="award" class="w-3.5 h-3.5"></i>{{ cert_count }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)" title="Сертификатов пока нет">0</span>
+                {% endif %}
+              </td>
+
+              {# ── статус ── #}
+              <td>
+                {% if user.is_active %}
+                  <span class="badge badge-emerald"><i data-lucide="circle-check" class="w-3.5 h-3.5"></i>Активен</span>
+                {% else %}
+                  <span class="badge badge-slate"><i data-lucide="lock" class="w-3.5 h-3.5"></i>Заблокирован</span>
+                {% endif %}
+              </td>
+
+              {# ── дата регистрации ── #}
+              <td>
+                <span class="block text-xs whitespace-nowrap" style="color:var(--ink-2)">
+                  {{ user.created_at | date_ru }}
+                </span>
+                {% if user.last_seen %}
+                  <span class="block text-[11px] whitespace-nowrap" style="color:var(--ink-4)">
+                    заходил(а) {{ user.last_seen | dt('%d.%m.%Y') }}
+                  </span>
+                {% endif %}
+              </td>
+
+              {# ── действия ── #}
+              <td>
+                <div class="flex items-center justify-end gap-1.5">
+                  <a href="{{ url_for('admin.user_edit', user_id=user.id) }}"
+                     class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                     style="border-color:var(--line);color:var(--ink-3)"
+                     aria-label="Редактировать профиль: {{ user_title }}" title="Редактировать">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                  </a>
+
+                  {% if current_user.is_authenticated and current_user.is_admin and user.id != current_user.id %}
+                    <form method="post" action="{{ url_for('admin.user_delete', user_id=user.id) }}"
+                          data-confirm="Удалить пользователя {{ user.email }} вместе с прогрессом, попытками тестов и сертификатами? Отменить не получится.">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit"
+                              class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                              style="border-color:var(--line);color:var(--ink-3)"
+                              aria-label="Удалить пользователя: {{ user_title }}" title="Удалить">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </form>
+                  {% else %}
+                    <span class="grid place-items-center w-8 h-8 rounded-lg border opacity-40"
+                          style="border-color:var(--line);color:var(--ink-4)"
+                          title="{{ 'Собственную учётную запись удалить нельзя' if current_user.is_authenticated and user.id == current_user.id else 'Удалять пользователей может только администратор' }}"
+                          aria-hidden="true">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="help mt-4 flex items-start gap-1.5">
+    <i data-lucide="shield" class="w-3.5 h-3.5 flex-none mt-px"></i>
+    <span>
+      Роль, группу, специальность и доступ можно изменить на странице профиля.
+      Менять эти данные и удалять учётные записи разрешено только администраторам.
+    </span>
+  </p>
+
+{% elif is_filtered %}
+  {# ── ничего не найдено по фильтру ── #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:var(--surface-2);color:var(--ink-4)">
+      <i data-lucide="search-x" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Ничего не нашлось</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      По заданным условиям пользователей нет. Проверьте написание имени или почты —
+      либо посмотрите другую роль.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-sm">
+        <i data-lucide="rotate-ccw"></i>Показать всех
+      </a>
+      {% if role %}
+        <a href="{{ url_for('admin.users', q=q or none) }}" class="btn btn-ghost btn-sm">
+          <i data-lucide="users"></i>Снять фильтр по роли
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+{% else %}
+  {# ── совсем пусто ── #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="users" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Пока пусто</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      Здесь появятся все, кто зарегистрируется на портале: студенты, редакторы и администраторы.
+      Роли и доступ вы сможете назначить прямо отсюда.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('auth.register') }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+        <i data-lucide="user-plus"></i>Открыть форму регистрации
+      </a>
+      <a href="{{ url_for('admin.dashboard') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="layout-dashboard"></i>На дашборд
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,273 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Вход в аккаунт — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Войдите в {{ setting('site_name', 'Caspian College Hub') }}, чтобы сохранять избранные сервисы, продолжать обучение и получать сертификаты.{% endblock %}
+
+{% block content %}
+{% set next_url = request.args.get('next', '') %}
+
+<section class="grid lg:grid-cols-2 min-h-[calc(100vh-var(--nav-h))]">
+
+  {# ══════════════════════ ЛЕВАЯ КОЛОНКА — ВИЗУАЛЬНАЯ ПАНЕЛЬ ══════════════════════ #}
+  <aside class="hidden lg:flex relative overflow-hidden grain flex-col justify-between p-12 xl:p-16 text-white"
+         style="background:linear-gradient(140deg,var(--brand) 0%,var(--brand-600) 48%,var(--brand-2) 100%)">
+
+    {# Мягкие световые пятна поверх градиента #}
+    <div class="absolute inset-0 pointer-events-none opacity-25"
+         style="background:radial-gradient(circle at 14% 16%,rgba(255,255,255,.55),transparent 44%),
+                            radial-gradient(circle at 86% 80%,rgba(255,255,255,.34),transparent 46%)"></div>
+
+    {# Плавающие декоративные карточки #}
+    <div class="absolute top-[26%] right-8 xl:right-14 float pointer-events-none z-10" style="animation-delay:-1.4s">
+      <div class="rounded-2xl px-4 py-3 flex items-center gap-3"
+           style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:rgba(255,255,255,.92);color:var(--brand-700)">
+          <i data-lucide="badge-check" class="w-4 h-4"></i>
+        </span>
+        <span class="leading-tight">
+          <span class="block text-xs font-bold">Курс пройден</span>
+          <span class="block text-[11px] opacity-80">Сертификат выдан</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="absolute bottom-[24%] right-16 xl:right-24 float-slow pointer-events-none z-10" style="animation-delay:-4.2s">
+      <div class="rounded-2xl px-4 py-3.5 w-44"
+           style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+        <span class="flex items-center justify-between text-[11px] font-semibold mb-2">
+          <span>Ваш прогресс</span>
+          <span>72%</span>
+        </span>
+        <span class="block h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.28)">
+          <span class="block h-full rounded-full" style="width:72%;background:#fff"></span>
+        </span>
+      </div>
+    </div>
+
+    {# Логотип колледжа #}
+    <div class="relative z-20">
+      <a href="{{ url_for('public.index') }}" class="inline-flex items-center gap-4 group">
+        <span class="grid place-items-center w-14 h-14 rounded-full flex-none shadow-hero transition-transform duration-500 group-hover:scale-105"
+              style="background:#fff">
+          <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo-sm.png') }}"
+               alt="{{ setting('site_name', 'Caspian College Hub') }}" class="h-8 w-auto object-contain">
+        </span>
+        <span class="leading-tight">
+          <span class="block font-display font-extrabold text-lg tracking-tight">
+            {{ setting('site_name', 'Caspian College Hub') }}
+          </span>
+          <span class="block text-xs opacity-80 font-medium">
+            {{ setting('site_tagline', 'Единое окно сервисов колледжа') }}
+          </span>
+        </span>
+      </a>
+    </div>
+
+    {# Заголовок и преимущества #}
+    <div class="relative z-20 max-w-md">
+      <h2 class="font-display text-4xl xl:text-5xl font-extrabold leading-[1.05] animate-fade-up">
+        С возвращением
+      </h2>
+      <p class="mt-5 text-base opacity-90 leading-relaxed animate-fade-up" style="animation-delay:.08s">
+        Войдите, чтобы продолжить с того места, где остановились. Все сервисы колледжа, курсы
+        и документы — на одной странице.
+      </p>
+
+      <ul class="mt-10 space-y-5 animate-fade-up" style="animation-delay:.16s">
+        <li class="flex items-start gap-4">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26)">
+            <i data-lucide="trending-up" class="w-5 h-5"></i>
+          </span>
+          <span class="pt-0.5">
+            <span class="block text-sm font-bold">Прогресс сохраняется</span>
+            <span class="block text-[13px] opacity-80 leading-relaxed">Пройденные уроки и тесты остаются в вашем кабинете.</span>
+          </span>
+        </li>
+        <li class="flex items-start gap-4">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26)">
+            <i data-lucide="heart" class="w-5 h-5"></i>
+          </span>
+          <span class="pt-0.5">
+            <span class="block text-sm font-bold">Избранные сервисы</span>
+            <span class="block text-[13px] opacity-80 leading-relaxed">Нужные ссылки всегда под рукой — без поиска в чате группы.</span>
+          </span>
+        </li>
+        <li class="flex items-start gap-4">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26)">
+            <i data-lucide="award" class="w-5 h-5"></i>
+          </span>
+          <span class="pt-0.5">
+            <span class="block text-sm font-bold">Сертификаты</span>
+            <span class="block text-[13px] opacity-80 leading-relaxed">За пройденные курсы — документ с кодом для проверки.</span>
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    {# Нижняя подпись #}
+    <div class="relative z-20 flex items-center gap-2 text-xs opacity-80">
+      <i data-lucide="shield-check" class="w-4 h-4"></i>
+      <span>Доступ только для студентов и сотрудников колледжа</span>
+    </div>
+  </aside>
+
+  {# ══════════════════════ ПРАВАЯ КОЛОНКА — ФОРМА ══════════════════════ #}
+  <div class="relative flex items-center justify-center overflow-hidden px-5 py-14 sm:px-8 lg:px-12">
+    <div class="aurora lg:hidden" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <div class="relative z-10 w-full max-w-md">
+
+      {# Возврат на главную #}
+      <a href="{{ url_for('public.index') }}"
+         class="inline-flex items-center gap-1.5 text-xs font-semibold mb-5 transition-colors ink-muted hover:text-[var(--brand)]">
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+        На главную
+      </a>
+
+      <div class="card p-7 sm:p-9 shadow-lift animate-fade-up">
+
+        <span class="badge badge-brand">
+          <i data-lucide="log-in" class="w-3 h-3"></i>
+          {{ t('action.login') }}
+        </span>
+
+        <h1 class="font-display text-[1.75rem] sm:text-3xl font-extrabold leading-tight mt-4">
+          Вход в аккаунт
+        </h1>
+        <p class="mt-2.5 text-sm ink-muted leading-relaxed">
+          Ещё нет аккаунта?
+          <a href="{{ url_for('auth.register') }}{% if next_url %}?next={{ next_url | urlencode }}{% endif %}"
+             class="font-semibold transition-colors" style="color:var(--brand)">Зарегистрируйтесь</a> —
+          это займёт минуту.
+        </p>
+
+        <form method="post"
+              action="{{ url_for('auth.login') }}{% if next_url %}?next={{ next_url | urlencode }}{% endif %}"
+              class="mt-7 space-y-5" x-data="{ show: false }">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next" value="{{ next_url }}">
+
+          {# Почта #}
+          <div>
+            <label class="label" for="login-email">Электронная почта</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                 style="color:var(--ink-4)" aria-hidden="true"></i>
+              <input id="login-email" name="email" type="email" required autofocus
+                     autocomplete="email" inputmode="email" spellcheck="false"
+                     value="{{ email or '' }}"
+                     placeholder="student@ccu.edu.kz"
+                     class="field !pl-11">
+            </div>
+          </div>
+
+          {# Пароль #}
+          <div>
+            <label class="label" for="login-password">Пароль</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                 style="color:var(--ink-4)" aria-hidden="true"></i>
+              <input id="login-password" name="password" required
+                     autocomplete="current-password"
+                     type="password" :type="show ? 'text' : 'password'"
+                     placeholder="Введите пароль"
+                     class="field !pl-11 !pr-12">
+              <button type="button" @click="show = !show"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-9 h-9 rounded-xl transition-colors hover:text-[var(--brand)]"
+                      style="color:var(--ink-4)"
+                      :aria-label="show ? 'Скрыть пароль' : 'Показать пароль'"
+                      :aria-pressed="show ? 'true' : 'false'"
+                      aria-label="Показать пароль" aria-pressed="false">
+                <span x-show="!show">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </span>
+                <span x-show="show" style="display:none">
+                  <i data-lucide="eye-off" class="w-4 h-4"></i>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {# Запомнить + помощь #}
+          <div class="flex items-center justify-between gap-4 flex-wrap">
+            <label for="login-remember" class="flex items-center gap-3 cursor-pointer select-none">
+              <span class="switch">
+                <input id="login-remember" name="remember" type="checkbox" checked>
+                <span></span>
+              </span>
+              <span class="text-sm font-medium">Запомнить меня</span>
+            </label>
+            <a href="{{ url_for('public.support') }}"
+               class="text-xs font-semibold transition-colors ink-muted hover:text-[var(--brand)]">
+              Не помните пароль?
+            </a>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg magnetic">
+            <i data-lucide="log-in"></i>
+            Войти в аккаунт
+          </button>
+        </form>
+
+        {# ── Демо-доступ ───────────────────────────────────────────────── #}
+        <div class="mt-7 pt-6 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="key-round" class="w-4 h-4" style="color:var(--brand)"></i>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-4)">Демо-доступ для проверки</span>
+          </div>
+
+          <div class="rounded-2xl p-3 space-y-2" style="background:var(--bg-soft);border:1px solid var(--line)">
+            {% set demo_accounts = [
+              {'role': 'Администратор', 'icon': 'shield', 'email': 'admin@ccu.edu.kz', 'password': 'admin123'},
+              {'role': 'Студент', 'icon': 'graduation-cap', 'email': 'student@ccu.edu.kz', 'password': 'student123'}
+            ] %}
+            {% for acc in demo_accounts %}
+              <div class="flex items-center gap-3 rounded-xl px-3 py-2.5" style="background:var(--surface);border:1px solid var(--line)">
+                <span class="grid place-items-center w-8 h-8 rounded-lg flex-none"
+                      style="background:var(--brand-50);color:var(--brand-700)">
+                  <i data-lucide="{{ acc.icon }}" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[11px] font-bold" style="color:var(--ink-4)">{{ acc.role }}</div>
+                  <div class="text-[13px] font-semibold truncate">{{ acc.email }}</div>
+                </div>
+                <div class="flex items-center gap-1 flex-none">
+                  <button type="button" data-copy="{{ acc.email }}"
+                          class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:text-[var(--brand)] hover:border-[var(--brand-300)]"
+                          style="border-color:var(--line-strong);color:var(--ink-3)"
+                          aria-label="Скопировать почту {{ acc.email }}" title="Скопировать почту">
+                    <i data-lucide="at-sign" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" data-copy="{{ acc.password }}"
+                          class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:text-[var(--brand)] hover:border-[var(--brand-300)]"
+                          style="border-color:var(--line-strong);color:var(--ink-3)"
+                          aria-label="Скопировать пароль для {{ acc.email }}" title="Скопировать пароль">
+                    <i data-lucide="asterisk" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <p class="help">
+            Нажмите на значок, чтобы скопировать почту или пароль, затем вставьте их в форму выше.
+            Учётные записи созданы только для демонстрации возможностей платформы.
+          </p>
+        </div>
+      </div>
+
+      {# Помощь под карточкой #}
+      <p class="mt-6 text-center text-xs ink-muted leading-relaxed">
+        Не получается войти?
+        <a href="{{ url_for('public.support') }}" class="font-semibold transition-colors" style="color:var(--brand)">Напишите в поддержку</a>
+        или посмотрите
+        <a href="{{ url_for('public.faq') }}" class="font-semibold transition-colors" style="color:var(--brand)">частые вопросы</a>.
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}

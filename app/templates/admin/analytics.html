@@ -1,0 +1,455 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Аналитика{% endblock %}
+{% block heading %}Аналитика{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Что смотрят, куда переходят и чему учатся</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.dashboard') }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="layout-dashboard"></i><span class="hidden sm:inline">Дашборд</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{# ══════════════════ ПРЕДРАСЧЁТЫ ══════════════════ #}
+{% set click_values = services | map(attribute='clicks') | map('int') | list %}
+{% set view_values  = services | map(attribute='views')  | map('int') | list %}
+
+{% set total_clicks = click_values | sum %}
+{% set total_views  = view_values  | sum %}
+{% set max_clicks   = (click_values | max) if click_values else 0 %}
+{# знаменатель для ширины полоски — никогда не ноль #}
+{% set bar_base     = max_clicks if max_clicks > 0 else 1 %}
+{% set avg_conv     = ((total_clicks * 100.0 / total_views) | round(1)) if total_views > 0 else 0 %}
+
+{% set total_learners     = (course_stats | sum(attribute='learners')) if course_stats else 0 %}
+{% set total_certificates = (course_stats | sum(attribute='certificates')) if course_stats else 0 %}
+{% set total_lessons      = (course_stats | sum(attribute='lessons')) if course_stats else 0 %}
+
+{# ══════════════════ ПОЯСНЕНИЕ ══════════════════ #}
+<div class="card p-4 sm:p-5 mb-6 flex items-start gap-3.5" style="border-left:3px solid var(--brand)">
+  <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+        style="background:var(--brand-50);color:var(--brand)">
+    <i data-lucide="info" class="w-4 h-4"></i>
+  </span>
+  <div class="min-w-0">
+    <p class="text-sm font-bold">Статистика собирается с момента запуска платформы</p>
+    <p class="text-xs ink-muted mt-1 leading-relaxed">
+      Здесь показаны накопленные итоги за всё время работы, а не за последние дни.
+      Просмотр засчитывается при открытии страницы сервиса, переход — при клике по кнопке
+      со ссылкой на внешний сервис. Данные обновляются сразу, обнулить их нельзя.
+    </p>
+  </div>
+</div>
+
+{# ══════════════════ КЛЮЧЕВЫЕ ЦИФРЫ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('eye', total_views, 'просмотров', 'страниц сервисов', '#0EA5E9'),
+    ('mouse-pointer-click', total_clicks, 'переходов', 'во внешние сервисы', '#EB5A40'),
+    ('trending-up', avg_conv ~ '%', 'конверсия', 'переходы к просмотрам', '#F59E0B'),
+    ('award', total_certificates, 'сертификатов', 'выдано за всё время', '#10B981'),
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{# ══════════════════ 1. РЕЙТИНГ СЕРВИСОВ ══════════════════ #}
+<section class="card overflow-hidden mb-6" aria-labelledby="rating-title">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+    <div class="min-w-0">
+      <h2 id="rating-title" class="font-display font-bold text-base">Рейтинг сервисов</h2>
+      <p class="text-xs ink-muted mt-0.5">
+        {% if services %}
+          {{ services | length }} {{ services | length | plural('сервис', 'сервиса', 'сервисов') }} — по числу переходов, от большего к меньшему
+        {% else %}
+          Список сервисов пока пуст
+        {% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('admin.services') }}" class="btn btn-ghost btn-sm">
+      <i data-lucide="layout-grid"></i><span class="hidden sm:inline">Все сервисы</span>
+    </a>
+  </div>
+
+  {% if services %}
+    <div class="overflow-x-auto">
+      <table class="tbl min-w-[56rem]">
+        <thead>
+          <tr>
+            <th class="w-14 text-center">Место</th>
+            <th>Сервис</th>
+            <th class="text-right w-28">Просмотры</th>
+            <th class="text-right w-28">Переходы</th>
+            <th class="text-right w-32">Конверсия</th>
+            <th class="w-56">Доля от лидера</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for service in services %}
+            {% set views = service.views | int %}
+            {% set clicks = service.clicks | int %}
+            {% set conv = ((clicks * 100.0 / views) | round(1)) if views > 0 else 0 %}
+            {% set bar = (clicks * 100 / bar_base) | round | int %}
+            <tr>
+              {# ── место ── #}
+              <td class="text-center">
+                <span class="inline-grid place-items-center w-7 h-7 rounded-lg text-xs font-extrabold tabular-nums
+                             {% if loop.index <= 3 %}text-white{% endif %}"
+                      style="{% if loop.index <= 3 %}background:linear-gradient(135deg,var(--brand),var(--brand-2)){% else %}background:var(--surface-2);color:var(--ink-3){% endif %}">
+                  {{ loop.index }}
+                </span>
+              </td>
+
+              {# ── иконка + название ── #}
+              <td>
+                <a href="{{ url_for('admin.service_edit', service_id=service.id) }}"
+                   class="flex items-center gap-3 group min-w-0">
+                  <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                        style="background:{{ service.color }}1a;color:{{ service.color }};border:1px solid {{ service.color }}33">
+                    <i data-lucide="{{ service.icon or 'app-window' }}" class="w-4 h-4"></i>
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate max-w-[16rem] transition-colors group-hover:text-[var(--brand)]"
+                          style="color:var(--ink)">
+                      {{ service.tr('name') }}
+                    </span>
+                    <span class="block text-[11px] truncate max-w-[16rem]" style="color:var(--ink-4)">
+                      {% if service.category %}{{ service.category.tr('name') }}{% else %}Без категории{% endif %}
+                      {% if not service.is_published %} · черновик{% endif %}
+                    </span>
+                  </span>
+                </a>
+              </td>
+
+              {# ── просмотры ── #}
+              <td class="text-right tabular-nums">{{ views }}</td>
+
+              {# ── переходы ── #}
+              <td class="text-right tabular-nums font-semibold" style="color:var(--brand)">{{ clicks }}</td>
+
+              {# ── конверсия ── #}
+              <td class="text-right">
+                {% if views > 0 %}
+                  <span class="badge badge-{{ 'emerald' if conv >= 50 else 'amber' if conv >= 20 else 'slate' }} tabular-nums">
+                    {{ conv }}%
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)" title="Страницу ещё не открывали">—</span>
+                {% endif %}
+              </td>
+
+              {# ── полоска ── #}
+              <td>
+                <span class="flex items-center gap-2.5">
+                  <span class="progress flex-1 !h-1.5" aria-hidden="true">
+                    <span class="progress__bar block" style="width:{{ bar }}%"></span>
+                  </span>
+                  <span class="text-[11px] tabular-nums flex-none w-10 text-right" style="color:var(--ink-4)">{{ bar }}%</span>
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="px-5 py-3.5 border-t text-[11px] ink-muted flex flex-wrap items-center gap-x-4 gap-y-1"
+         style="border-color:var(--line);background:var(--surface-2)">
+      <span>Конверсия — доля просмотров, закончившихся переходом в сервис.</span>
+      <span>Полоска — сколько переходов относительно лидера рейтинга ({{ max_clicks }}).</span>
+    </div>
+  {% else %}
+    <div class="py-14 px-6 text-center">
+      <span class="inline-grid place-items-center w-14 h-14 rounded-2xl mb-4"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="chart-no-axes-column" class="w-6 h-6"></i>
+      </span>
+      <p class="font-display font-bold text-base">Пока нечего считать</p>
+      <p class="text-xs ink-muted mt-1.5 max-w-md mx-auto leading-relaxed">
+        В каталоге ещё нет сервисов, поэтому просмотры и переходы не собираются.
+        Добавьте первый сервис — статистика начнёт накапливаться сразу после публикации.
+      </p>
+      <a href="{{ url_for('admin.service_edit') }}" class="btn btn-primary btn-sm mt-5">
+        <i data-lucide="plus"></i>Добавить сервис
+      </a>
+    </div>
+  {% endif %}
+</section>
+
+{# ══════════════════ 2. ОБУЧЕНИЕ ══════════════════ #}
+<section class="card overflow-hidden mb-6" aria-labelledby="learning-title">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+    <div class="min-w-0">
+      <h2 id="learning-title" class="font-display font-bold text-base">Обучение</h2>
+      <p class="text-xs ink-muted mt-0.5">
+        {% if course_stats %}
+          {{ course_stats | length }} {{ course_stats | length | plural('опубликованный курс', 'опубликованных курса', 'опубликованных курсов') }} ·
+          {{ total_lessons }} {{ total_lessons | plural('урок', 'урока', 'уроков') }} ·
+          {{ total_learners }} {{ total_learners | plural('учащийся', 'учащихся', 'учащихся') }}
+        {% else %}
+          Опубликованных курсов пока нет
+        {% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('admin.courses') }}" class="btn btn-ghost btn-sm">
+      <i data-lucide="graduation-cap"></i><span class="hidden sm:inline">Все курсы</span>
+    </a>
+  </div>
+
+  {% if course_stats %}
+    <div class="overflow-x-auto">
+      <table class="tbl min-w-[60rem]">
+        <thead>
+          <tr>
+            <th>Курс</th>
+            <th>Сервис</th>
+            <th class="text-right w-24">Уроков</th>
+            <th class="text-right w-28">Учащихся</th>
+            <th class="text-right w-32">Сертификатов</th>
+            <th class="w-56">Доля завершивших</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in course_stats %}
+            {% set course = row.course %}
+            {% set learners = row.learners | int %}
+            {% set certificates = row.certificates | int %}
+            {% set lessons = row.lessons | int %}
+            {% set completion = ((certificates * 100.0 / learners) | round | int) if learners > 0 else 0 %}
+            <tr>
+              {# ── курс ── #}
+              <td>
+                <a href="{{ url_for('admin.course_edit', course_id=course.id) }}"
+                   class="flex items-center gap-3 group min-w-0">
+                  <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                        style="background:var(--brand-50);color:var(--brand)">
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate max-w-[18rem] transition-colors group-hover:text-[var(--brand)]"
+                          style="color:var(--ink)">
+                      {{ course.tr('title') }}
+                    </span>
+                    <span class="block text-[11px] truncate max-w-[18rem]" style="color:var(--ink-4)">
+                      {{ course.level_label }} · {{ course.duration_min or 0 }} мин
+                      {% if not course.certificate_enabled %} · без сертификата{% endif %}
+                    </span>
+                  </span>
+                </a>
+              </td>
+
+              {# ── сервис ── #}
+              <td>
+                {% if course.service %}
+                  <a href="{{ url_for('admin.service_edit', service_id=course.service.id) }}"
+                     class="badge transition-opacity hover:opacity-80"
+                     style="background:{{ course.service.color }}1a;color:{{ course.service.color }};border-color:{{ course.service.color }}33">
+                    <i data-lucide="{{ course.service.icon or 'app-window' }}" class="w-3.5 h-3.5"></i>
+                    {{ course.service.tr('name') }}
+                  </a>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">Не привязан</span>
+                {% endif %}
+              </td>
+
+              {# ── уроки ── #}
+              <td class="text-right tabular-nums">{{ lessons }}</td>
+
+              {# ── учащиеся ── #}
+              <td class="text-right tabular-nums font-semibold" style="color:var(--ink)">{{ learners }}</td>
+
+              {# ── сертификаты ── #}
+              <td class="text-right tabular-nums">
+                {% if certificates %}
+                  <span class="badge badge-emerald tabular-nums">
+                    <i data-lucide="award" class="w-3.5 h-3.5"></i>{{ certificates }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">0</span>
+                {% endif %}
+              </td>
+
+              {# ── доля завершивших ── #}
+              <td>
+                {% if learners > 0 %}
+                  <span class="flex items-center gap-2.5">
+                    <span class="progress flex-1 !h-1.5" aria-hidden="true">
+                      <span class="progress__bar block" style="width:{{ completion if completion <= 100 else 100 }}%"></span>
+                    </span>
+                    <span class="text-[11px] tabular-nums flex-none w-10 text-right" style="color:var(--ink-4)">{{ completion }}%</span>
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">Курс ещё не начинали</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="px-5 py-3.5 border-t text-[11px] ink-muted flex flex-wrap items-center gap-x-4 gap-y-1"
+         style="border-color:var(--line);background:var(--surface-2)">
+      <span>Учащийся — тот, кто отметил выполненным хотя бы один урок курса.</span>
+      <span>Доля завершивших — сертификаты к числу учащихся.</span>
+    </div>
+  {% else %}
+    <div class="py-14 px-6 text-center">
+      <span class="inline-grid place-items-center w-14 h-14 rounded-2xl mb-4"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+      </span>
+      <p class="font-display font-bold text-base">Курсов пока нет</p>
+      <p class="text-xs ink-muted mt-1.5 max-w-md mx-auto leading-relaxed">
+        В разделе показываются только опубликованные мини-курсы. Создайте курс и откройте к нему доступ —
+        здесь появятся учащиеся, сертификаты и доля завершивших.
+      </p>
+      <a href="{{ url_for('admin.course_edit') }}" class="btn btn-primary btn-sm mt-5">
+        <i data-lucide="plus"></i>Создать курс
+      </a>
+    </div>
+  {% endif %}
+</section>
+
+{# ══════════════════ 3. АКТИВНЫЕ УЧАЩИЕСЯ ══════════════════ #}
+<section class="card overflow-hidden" aria-labelledby="learners-title">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+    <div class="min-w-0">
+      <h2 id="learners-title" class="font-display font-bold text-base">Активные учащиеся</h2>
+      <p class="text-xs ink-muted mt-0.5">
+        {% if top_users %}
+          Первая десятка по числу полученных сертификатов
+        {% else %}
+          Пока некого показывать
+        {% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-ghost btn-sm">
+      <i data-lucide="users"></i><span class="hidden sm:inline">Все пользователи</span>
+    </a>
+  </div>
+
+  {% if top_users %}
+    {% set medals = {1: ('#D4A017', 'Золото'), 2: ('#94A3B8', 'Серебро'), 3: ('#B45309', 'Бронза')} %}
+    {% set leaders = top_users | selectattr('1') | list | length %}
+    <div class="overflow-x-auto">
+      <table class="tbl min-w-[44rem]">
+        <thead>
+          <tr>
+            <th class="w-16 text-center">Место</th>
+            <th>Учащийся</th>
+            <th class="w-40">Группа</th>
+            <th class="text-right w-36">Сертификатов</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user, cert_count in top_users %}
+            {% set count = cert_count | int %}
+            {% set medal = medals.get(loop.index) if count > 0 else none %}
+            <tr>
+              {# ── место ── #}
+              <td class="text-center">
+                {% if medal %}
+                  <span class="inline-grid place-items-center w-8 h-8 rounded-xl"
+                        style="background:{{ medal[0] }}1f;color:{{ medal[0] }};border:1px solid {{ medal[0] }}40"
+                        title="{{ medal[1] }} — {{ loop.index }} место">
+                    <i data-lucide="medal" class="w-4 h-4"></i>
+                  </span>
+                  <span class="sr-only">{{ loop.index }} место, {{ medal[1] }}</span>
+                {% else %}
+                  <span class="inline-grid place-items-center w-8 h-8 rounded-xl text-xs font-extrabold tabular-nums"
+                        style="background:var(--surface-2);color:var(--ink-3)">
+                    {{ loop.index }}
+                  </span>
+                {% endif %}
+              </td>
+
+              {# ── имя ── #}
+              <td>
+                <a href="{{ url_for('admin.user_edit', user_id=user.id) }}"
+                   class="flex items-center gap-3 group min-w-0">
+                  {% if user.avatar %}
+                    <img src="{{ url_for('static', filename=user.avatar) }}"
+                         alt="Фото профиля: {{ user.full_name or user.email }}"
+                         class="w-9 h-9 rounded-full object-cover flex-none">
+                  {% else %}
+                    <span class="w-9 h-9 rounded-full grid place-items-center text-[11px] font-bold text-white flex-none"
+                          style="background:linear-gradient(135deg,var(--brand),var(--brand-2))" aria-hidden="true">
+                      {{ user.initials }}
+                    </span>
+                  {% endif %}
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate max-w-[16rem] transition-colors group-hover:text-[var(--brand)]"
+                          style="color:var(--ink)">
+                      {{ user.full_name or user.email }}
+                    </span>
+                    <span class="block text-[11px] truncate max-w-[16rem]" style="color:var(--ink-4)">{{ user.email }}</span>
+                  </span>
+                </a>
+              </td>
+
+              {# ── группа ── #}
+              <td>
+                {% if user.group_name %}
+                  <span class="badge badge-sky">{{ user.group_name }}</span>
+                {% elif user.specialty %}
+                  <span class="text-xs truncate max-w-[10rem] inline-block align-middle" style="color:var(--ink-3)">{{ user.specialty }}</span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">Группа не указана</span>
+                {% endif %}
+              </td>
+
+              {# ── сертификаты ── #}
+              <td class="text-right">
+                {% if count %}
+                  <span class="inline-flex items-center gap-1.5 text-sm font-extrabold tabular-nums" style="color:var(--ink)">
+                    <i data-lucide="award" class="w-4 h-4" style="color:var(--brand)"></i>{{ count }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">ещё нет</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="px-5 py-3.5 border-t text-[11px] ink-muted" style="border-color:var(--line);background:var(--surface-2)">
+      {% if leaders %}
+        Сертификат выдаётся после успешного прохождения итогового теста курса.
+      {% else %}
+        Сертификатов пока никто не получил — список отсортирован по дате появления пользователей.
+        Как только кто-то пройдёт итоговый тест, здесь появятся призовые места.
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="py-14 px-6 text-center">
+      <span class="inline-grid place-items-center w-14 h-14 rounded-2xl mb-4"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </span>
+      <p class="font-display font-bold text-base">Учащихся пока нет</p>
+      <p class="text-xs ink-muted mt-1.5 max-w-md mx-auto leading-relaxed">
+        На платформе ещё не зарегистрирован ни один пользователь. Пригласите студентов —
+        и рейтинг по сертификатам начнёт заполняться.
+      </p>
+      <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-sm mt-5">
+        <i data-lucide="user-plus"></i>Перейти к пользователям
+      </a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

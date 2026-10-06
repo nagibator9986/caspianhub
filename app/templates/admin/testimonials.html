@@ -1,0 +1,318 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Отзывы{% endblock %}
+{% block heading %}Отзывы{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Карусель отзывов на главной странице платформы</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.index') }}#otzyvy" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="external-link"></i><span class="hidden sm:inline">На сайте</span>
+  </a>
+  <button type="button" x-data @click="$dispatch('testimonial-new')" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новый отзыв</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set total = items | length %}
+{% set active_total = items | selectattr('is_active') | list | length %}
+{% set ns = namespace(sum=0) %}
+{% for item in items %}{% set ns.sum = ns.sum + (item.rating or 0) %}{% endfor %}
+{% set avg = (ns.sum / total) | round(1) if total else 0 %}
+
+{% set blank = {
+  'id': '',
+  'author': '', 'role_ru': '', 'role_kk': '', 'role_en': '',
+  'text_ru': '', 'text_kk': '', 'text_en': '',
+  'rating': 5, 'is_active': true
+} %}
+
+<div x-data='testimonialEditor({{ blank | tojson }})' @testimonial-new.window="startNew()">
+
+  {# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    {% set metrics = [
+      ('quote', total, 'отзывов', 'всего собрано', '#EB5A40'),
+      ('eye', active_total, 'активных', 'показываются на главной', '#10B981'),
+      ('star', avg, 'средний балл', 'по пятибалльной шкале', '#F59E0B'),
+    ] %}
+    {% for icon, value, label, hint, color in metrics %}
+      <div class="card stat-card p-5" style="--glow:{{ color }}">
+        <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+              style="background:{{ color }}1a;color:{{ color }}">
+          <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+        </span>
+        <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+        <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+        <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+    {# ══════════════════ СПИСОК ══════════════════ #}
+    <div class="lg:col-span-7 xl:col-span-8">
+      {% if items %}
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h2 class="font-display font-bold text-base">Все отзывы</h2>
+          <span class="text-[11px] ink-muted inline-flex items-center gap-1.5">
+            <i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i>
+            Порядок меняется перетаскиванием
+          </span>
+        </div>
+
+        <div data-sortable="testimonial" class="grid sm:grid-cols-2 gap-4">
+          {% for item in items %}
+            <figure data-id="{{ item.id }}"
+                    class="card p-5 flex flex-col"
+                    :class="isEditing({{ item.id }}) ? 'ring-2' : ''"
+                    :style="isEditing({{ item.id }}) ? 'border-color:var(--brand);--tw-ring-color:color-mix(in srgb,var(--brand) 22%,transparent)' : ''">
+
+              <div class="flex items-start justify-between gap-2 mb-3">
+                <span class="drag-handle flex-none" aria-label="Перетащить">
+                  <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                </span>
+                <div class="flex gap-0.5 flex-1">
+                  {% for i in range(item.rating or 5) %}
+                    <i data-lucide="star" class="w-3.5 h-3.5" style="color:var(--brand-2);fill:var(--brand-2)"></i>
+                  {% endfor %}
+                  {% for i in range(5 - (item.rating or 5)) %}
+                    <i data-lucide="star" class="w-3.5 h-3.5" style="color:var(--ink-4)"></i>
+                  {% endfor %}
+                </div>
+                {% if item.is_active %}
+                  <span class="badge badge-emerald flex-none"><i data-lucide="eye" class="w-3 h-3"></i></span>
+                {% else %}
+                  <span class="badge badge-rose flex-none"><i data-lucide="eye-off" class="w-3 h-3"></i></span>
+                {% endif %}
+              </div>
+
+              <blockquote class="text-sm leading-relaxed flex-1 line-clamp-4" style="color:var(--ink-2)">
+                «{{ item.text_ru }}»
+              </blockquote>
+
+              <figcaption class="flex items-center gap-3 mt-4 pt-4 border-t" style="border-color:var(--line)">
+                {% if item.avatar %}
+                  <img src="{{ url_for('static', filename=item.avatar) }}" alt=""
+                       class="w-10 h-10 rounded-full object-cover flex-none">
+                {% else %}
+                  <span class="w-10 h-10 rounded-full grid place-items-center text-xs font-bold text-white flex-none"
+                        style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">
+                    {{ item.author.split()[0][0] if item.author else '?' }}{{ item.author.split()[1][0] if item.author.split() | length > 1 else '' }}
+                  </span>
+                {% endif %}
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-bold truncate">{{ item.author }}</span>
+                  <span class="block text-[11px] ink-muted truncate">{{ item.role_ru }}</span>
+                </span>
+                <span class="flex items-center gap-1 flex-none">
+                  <button type="button" class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                          style="color:var(--ink-3)" aria-label="Изменить отзыв"
+                          @click='edit({{ {
+                            "id": item.id, "author": item.author,
+                            "role_ru": item.role_ru, "role_kk": item.role_kk, "role_en": item.role_en,
+                            "text_ru": item.text_ru, "text_kk": item.text_kk, "text_en": item.text_en,
+                            "rating": item.rating or 5, "is_active": item.is_active
+                          } | tojson }})'>
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                  </button>
+                  <form method="post" action="{{ url_for('admin.testimonial_delete', item_id=item.id) }}"
+                        data-confirm="Удалить отзыв от {{ item.author }}?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                            style="color:var(--ink-3)" aria-label="Удалить отзыв">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </form>
+                </span>
+              </figcaption>
+            </figure>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card p-12 text-center">
+          <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="quote" class="w-7 h-7"></i>
+          </span>
+          <h2 class="font-display font-bold text-lg">Отзывов пока нет</h2>
+          <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+            Добавьте пару живых отзывов студентов и преподавателей — блок появится на главной странице.
+          </p>
+          <button type="button" @click="startNew()" class="btn btn-primary btn-sm mt-6">
+            <i data-lucide="plus"></i> Добавить первый отзыв
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ══════════════════ ФОРМА ══════════════════ #}
+    <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24">
+      <form id="testimonial-form" method="post" action="{{ url_for('admin.testimonials') }}"
+            enctype="multipart/form-data" class="card p-5" @submit="guard($event)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" :value="form.id">
+
+        <div class="flex items-center justify-between gap-3 mb-5">
+          <h2 class="font-display font-bold text-base" x-text="isEdit ? 'Изменить отзыв' : 'Новый отзыв'"></h2>
+          <button type="button" x-show="isEdit" x-cloak @click="startNew()"
+                  class="text-xs font-bold" style="color:var(--brand)">Отменить</button>
+        </div>
+
+        <div class="mb-4">
+          <label class="label" for="tm-author">Автор</label>
+          <input id="tm-author" name="author" type="text" class="field" x-model="form.author"
+                 placeholder="Аружан Бекова" required>
+        </div>
+
+        {# Языковые вкладки #}
+        <div data-tabs="lang">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="label !mb-0">Роль и текст</span>
+            <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+              {% for code, label, full in [('ru', 'Рус', 'русском'), ('kk', 'Қаз', 'казахском'), ('en', 'Eng', 'английском')] %}
+                <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                        data-tab="{{ code }}" aria-label="Показать поля на {{ full }}">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% for code, full in [('ru', 'русском'), ('kk', 'казахском'), ('en', 'английском')] %}
+            <div data-panel="{{ code }}" class="space-y-3">
+              <div>
+                <label class="label" for="tm-role-{{ code }}">Кем работает или учится ({{ full }})</label>
+                <input id="tm-role-{{ code }}" name="role_{{ code }}" type="text" class="field"
+                       x-model="form.role_{{ code }}"
+                       placeholder="{{ 'Студентка 2 курса, «Маркетинг»' if code == 'ru' else '' }}">
+              </div>
+              <div>
+                <label class="label" for="tm-text-{{ code }}">Текст отзыва ({{ full }})</label>
+                <textarea id="tm-text-{{ code }}" name="text_{{ code }}" rows="5" class="field"
+                          x-model="form.text_{{ code }}"
+                          placeholder="{{ 'Перестала искать ссылку на журнал в чате группы…' if code == 'ru' else '' }}"></textarea>
+                <p class="help">Два-три предложения живой речью, без рекламных оборотов</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-5 pt-5 border-t space-y-4" style="border-color:var(--line)">
+          <div>
+            <span class="label">Оценка</span>
+            <div class="flex items-center gap-1.5" role="radiogroup" aria-label="Оценка от 1 до 5">
+              {% for value in [1, 2, 3, 4, 5] %}
+                <label class="cursor-pointer" aria-label="{{ value }} из 5">
+                  <input type="radio" name="rating" value="{{ value }}" class="sr-only"
+                         x-model.number="form.rating">
+                  <i data-lucide="star" class="w-6 h-6 transition-transform hover:scale-110"
+                     :style="form.rating >= {{ value }}
+                       ? 'color:var(--brand-2);fill:var(--brand-2)'
+                       : 'color:var(--ink-4)'"></i>
+                </label>
+              {% endfor %}
+              <span class="text-xs font-bold ml-2" style="color:var(--brand)" x-text="form.rating + ' из 5'"></span>
+            </div>
+          </div>
+
+          <div>
+            <label class="label" for="tm-avatar">Фотография</label>
+            <div class="flex items-center gap-3">
+              <span id="tm-avatar-preview"
+                    class="w-14 h-14 rounded-full grid place-items-center flex-none overflow-hidden"
+                    style="background:var(--brand-50);color:var(--brand-300)">
+                <i data-lucide="user" class="w-6 h-6"></i>
+              </span>
+              <input id="tm-avatar" name="avatar" type="file" accept="image/*"
+                     data-preview-for="#tm-avatar-preview"
+                     class="field !py-2 !text-xs flex-1">
+            </div>
+            <p class="help">Необязательно — без фотографии покажем инициалы в фирменном круге</p>
+          </div>
+
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <span class="switch">
+              <input type="checkbox" name="is_active" x-model="form.is_active">
+              <span></span>
+            </span>
+            <span class="text-sm font-semibold">Показывать на главной</span>
+          </label>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-5">
+          <i data-lucide="check"></i>
+          <span x-text="isEdit ? 'Сохранить изменения' : 'Добавить отзыв'"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('testimonialEditor', (blank) => ({
+      blank: blank,
+      form: Object.assign({}, blank),
+
+      get isEdit() { return String(this.form.id || '') !== ''; },
+      isEditing(id) { return String(this.form.id || '') === String(id); },
+
+      /* Переносит выбранный отзыв в форму */
+      edit(data) {
+        this.form = Object.assign({}, this.blank, data || {});
+        this.focusForm();
+      },
+
+      /* Сбрасывает форму к созданию нового отзыва */
+      startNew() {
+        this.form = Object.assign({}, this.blank);
+        this.resetAvatarPreview();
+        this.focusForm();
+      },
+
+      resetAvatarPreview() {
+        const box = document.getElementById('tm-avatar-preview');
+        const input = document.getElementById('tm-avatar');
+        if (input) input.value = '';
+        if (!box) return;
+        box.innerHTML = '<i data-lucide="user" class="w-6 h-6"></i>';
+        if (window.lucide) window.lucide.createIcons();
+      },
+
+      focusForm() {
+        this.$nextTick(() => {
+          const card = document.getElementById('testimonial-form');
+          if (card && window.matchMedia('(max-width: 1023px)').matches) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+          if (tab) tab.click();
+          const first = document.getElementById('tm-author');
+          if (first) first.focus({ preventScroll: true });
+        });
+      },
+
+      /* Не отправляем форму без автора и текста */
+      guard(event) {
+        const noAuthor = !String(this.form.author || '').trim();
+        const noText = !String(this.form.text_ru || '').trim();
+        if (!noAuthor && !noText) return;
+        event.preventDefault();
+        if (noAuthor) {
+          document.getElementById('tm-author').focus();
+          if (window.hubToast) window.hubToast('Укажите автора отзыва', 'error');
+          return;
+        }
+        const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+        if (tab) tab.click();
+        document.getElementById('tm-text-ru').focus();
+        if (window.hubToast) window.hubToast('Введите текст отзыва на русском', 'error');
+      },
+    }));
+  });
+</script>
+{% endblock %}

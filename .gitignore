@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Flask
+instance/
+*.db
+*.sqlite3
+.env
+
+# Загруженные пользователями файлы (кроме структуры каталогов)
+app/static/uploads/*/*
+!app/static/uploads/*/.gitkeep
+
+# Миграции создаются локально
+migrations/
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

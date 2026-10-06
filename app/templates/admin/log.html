@@ -1,0 +1,424 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Журнал действий{% endblock %}
+{% block heading %}Журнал действий{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Кто и что менял в панели управления — по свежим следам</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.audit_log') }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="refresh-cw"></i><span class="hidden sm:inline">Обновить</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{# ─────────── словари действий и сущностей ─────────── #}
+{% set known_actions = ['create', 'update', 'delete', 'login'] %}
+
+{% set action_verbs = {
+  'create': 'создал',
+  'update': 'изменил',
+  'delete': 'удалил',
+  'login':  'вошёл в систему',
+  'other':  'выполнил действие',
+} %}
+{% set action_titles = {
+  'create': 'Создание',
+  'update': 'Изменение',
+  'delete': 'Удаление',
+  'login':  'Входы',
+  'other':  'Прочее',
+} %}
+{% set action_icons = {
+  'create': 'plus',
+  'update': 'pencil',
+  'delete': 'trash-2',
+  'login':  'log-in',
+  'other':  'activity',
+} %}
+{% set action_colors = {
+  'create': '#10B981',
+  'update': 'var(--brand)',
+  'delete': '#E11D48',
+  'login':  'var(--ink-3)',
+  'other':  'var(--ink-3)',
+} %}
+
+{% set entity_labels = {
+  'service': 'сервис', 'course': 'курс', 'news': 'новость', 'user': 'пользователь',
+  'settings': 'настройки', 'category': 'категорию', 'lesson': 'урок', 'module': 'модуль',
+  'faq': 'вопрос', 'testimonial': 'отзыв', 'menu': 'пункт меню', 'media': 'медиафайл',
+  'feedback': 'обращение', 'home_section': 'блок главной',
+} %}
+{% set entity_icons = {
+  'service': 'layout-grid', 'course': 'graduation-cap', 'news': 'newspaper', 'user': 'user',
+  'settings': 'settings-2', 'category': 'folder-tree', 'lesson': 'book-open', 'module': 'layers',
+  'faq': 'circle-help', 'testimonial': 'quote', 'menu': 'menu', 'media': 'image',
+  'feedback': 'inbox', 'home_section': 'house',
+} %}
+
+{# ─────────── подсчёты одним проходом ─────────── #}
+{% set total = items | length %}
+{% set c = namespace(create=0, update=0, delete=0, login=0, other=0, authors=[], system=0) %}
+{% for item in items %}
+  {% if item.action == 'create' %}
+    {% set c.create = c.create + 1 %}
+  {% elif item.action == 'update' %}
+    {% set c.update = c.update + 1 %}
+  {% elif item.action == 'delete' %}
+    {% set c.delete = c.delete + 1 %}
+  {% elif item.action == 'login' %}
+    {% set c.login = c.login + 1 %}
+  {% else %}
+    {% set c.other = c.other + 1 %}
+  {% endif %}
+  {% if item.user %}
+    {% if item.user.id not in c.authors %}
+      {% set c.authors = c.authors + [item.user.id] %}
+    {% endif %}
+  {% else %}
+    {% set c.system = c.system + 1 %}
+  {% endif %}
+{% endfor %}
+{% set action_counts = {'create': c.create, 'update': c.update, 'delete': c.delete, 'login': c.login, 'other': c.other} %}
+{% set today_key = now | dt('%Y-%m-%d') %}
+
+{# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('scroll-text', total, 'записей в ленте', 'последние действия', '#EB5A40'),
+    ('plus', c.create, 'создано', 'новые материалы', '#10B981'),
+    ('pencil', c.update, 'изменено', 'правки и настройки', '#0EA5E9'),
+    ('trash-2', c.delete, 'удалено', 'вернуть уже нельзя', '#E11D48'),
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{# ══════════════════ ПОЯСНЕНИЕ ══════════════════ #}
+<div class="card p-4 sm:p-5 mb-6 flex items-start gap-3.5">
+  <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+        style="background:var(--brand-50);color:var(--brand)">
+    <i data-lucide="info" class="w-4 h-4"></i>
+  </span>
+  <div class="min-w-0">
+    <p class="text-sm font-bold">Показаны последние 200 записей</p>
+    <p class="text-xs ink-muted mt-1 leading-relaxed">
+      Самые свежие — сверху. Более ранние действия в журнале не отображаются.
+      {% if total %}
+        Сейчас в ленте {{ total }} {{ total | plural('запись', 'записи', 'записей') }}
+        {% if c.authors | length %}
+          от {{ c.authors | length }} {{ c.authors | length | plural('сотрудника', 'сотрудников', 'сотрудников') }}{% if c.system %} и {{ c.system }} {{ c.system | plural('системной', 'системных', 'системных') }}{% endif %}{% if c.system %} {{ c.system | plural('записи', 'записи', 'записей') }}{% endif %}.
+        {% else %}
+          — все они системные.
+        {% endif %}
+        {% if c.login %}
+          Входы в систему записываются отдельно: их {{ c.login }}.
+        {% endif %}
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+{% if items %}
+  <div class="card overflow-hidden">
+
+    {# ── шапка: счётчик + поиск ── #}
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+      <div class="min-w-0">
+        <h2 class="font-display font-bold text-base">Лента действий</h2>
+        <p class="text-xs ink-muted mt-0.5">
+          Показано <span id="log-visible-count" class="font-semibold tabular-nums" style="color:var(--ink)">{{ total }}</span>
+          из {{ total }} {{ total | plural('записи', 'записей', 'записей') }}
+        </p>
+      </div>
+
+      <div class="relative w-full sm:w-72">
+        <label for="log-search" class="sr-only">Поиск по журналу</label>
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+           style="color:var(--ink-4)" aria-hidden="true"></i>
+        <input id="log-search" type="search" class="field !pl-10 !pr-10 !py-2.5 text-sm"
+               placeholder="Имя, сущность или описание" autocomplete="off">
+        <button type="button" id="log-search-clear"
+                class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 grid place-items-center w-7 h-7 rounded-lg transition-colors hover:text-[var(--brand)]"
+                style="color:var(--ink-4)" aria-label="Очистить поиск" title="Очистить поиск">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    {# ── чипы-фильтры по типу действия (клиентские) ── #}
+    <div class="px-5 py-3 border-b flex flex-wrap items-center gap-2"
+         style="border-color:var(--line);background:var(--surface-2)"
+         role="group" aria-label="Фильтр по типу действия">
+      <span class="text-[11px] font-extrabold uppercase tracking-[.12em] mr-1" style="color:var(--ink-4)">Действие</span>
+
+      <button type="button" class="chip is-active" data-log-filter="all" aria-pressed="true">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>Все
+        <span class="tabular-nums" style="color:var(--ink-4)">{{ total }}</span>
+      </button>
+
+      {% for key in ['create', 'update', 'delete', 'login', 'other'] %}
+        {% set n = action_counts.get(key, 0) %}
+        {% if n %}
+          <button type="button" class="chip" data-log-filter="{{ key }}" aria-pressed="false">
+            <i data-lucide="{{ action_icons.get(key, 'activity') }}" class="w-3.5 h-3.5"></i>{{ action_titles.get(key, key) }}
+            <span class="tabular-nums" style="color:var(--ink-4)">{{ n }}</span>
+          </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {# ── лента ── #}
+    <div class="p-5">
+      <ul class="timeline space-y-3">
+        {% set ns = namespace(day='') %}
+        {% for item in items %}
+          {% set act = item.action if item.action in known_actions else 'other' %}
+          {% set day_key = (item.created_at | dt('%Y-%m-%d')) or 'unknown' %}
+
+          {# ── разделитель дня ── #}
+          {% if day_key != ns.day %}
+            {% set ns.day = day_key %}
+            <li data-log-day="{{ day_key }}" class="pt-3 first:pt-0">
+              <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[11px] font-extrabold uppercase tracking-[.1em]"
+                    style="background:var(--surface-2);border-color:var(--line);color:var(--ink-3)">
+                <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i>
+                {% if day_key == 'unknown' %}
+                  Дата неизвестна
+                {% elif day_key == today_key %}
+                  Сегодня
+                {% else %}
+                  {{ item.created_at | date_ru }}
+                {% endif %}
+              </span>
+            </li>
+          {% endif %}
+
+          {# ── кто ── #}
+          {% if item.user %}
+            {% set who = item.user.full_name or item.user.email %}
+          {% else %}
+            {% set who = 'Система' %}
+          {% endif %}
+
+          {% set entity_label = entity_labels.get(item.entity, item.entity or '') %}
+          {% set dot_color = action_colors.get(act, 'var(--ink-3)') %}
+
+          {# ── ссылка на объект (для существующих записей) ── #}
+          {% set link = none %}
+          {% if act != 'delete' %}
+            {% if item.entity == 'settings' %}
+              {% set link = url_for('admin.settings') %}
+            {% elif item.entity_id %}
+              {% if item.entity == 'service' %}
+                {% set link = url_for('admin.service_edit', service_id=item.entity_id) %}
+              {% elif item.entity == 'course' %}
+                {% set link = url_for('admin.course_edit', course_id=item.entity_id) %}
+              {% elif item.entity == 'news' %}
+                {% set link = url_for('admin.news_edit', news_id=item.entity_id) %}
+              {% elif item.entity == 'user' %}
+                {% set link = url_for('admin.user_edit', user_id=item.entity_id) %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+
+          <li data-log-entry data-action="{{ act }}" data-day="{{ day_key }}"
+              data-search="{{ (who ~ ' ' ~ (item.summary or '') ~ ' ' ~ entity_label ~ ' ' ~ action_titles.get(act, '')) | lower }}">
+
+            <span class="timeline__dot mt-1.5" style="border-color:{{ dot_color }};color:{{ dot_color }}" aria-hidden="true">
+              <i data-lucide="{{ action_icons.get(act, 'activity') }}" class="w-4 h-4"></i>
+            </span>
+
+            <div class="rounded-xl border px-4 py-3 transition-all duration-300 hover:shadow-soft hover:border-[var(--line-strong)]"
+                 style="border-color:var(--line);background:var(--surface)">
+
+              {# заголовок записи #}
+              <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+                <p class="text-sm leading-relaxed min-w-0">
+                  <span class="font-bold" style="color:var(--ink)">{{ who }}</span>
+                  <span class="ink-muted">{{ action_verbs.get(act, 'выполнил действие') }}</span>
+                  {% if act != 'login' and entity_label %}
+                    <span class="badge badge-slate align-middle ml-0.5">
+                      <i data-lucide="{{ entity_icons.get(item.entity, 'box') }}" class="w-3.5 h-3.5"></i>{{ entity_label }}
+                    </span>
+                  {% endif %}
+                </p>
+
+                <span class="inline-flex items-center gap-1.5 text-[11px] ink-muted whitespace-nowrap tabular-nums flex-none"
+                      title="{{ item.created_at | dt('%d.%m.%Y') }}{% if item.created_at %}, {{ item.created_at | dt('%H:%M:%S') }}{% endif %}">
+                  <i data-lucide="clock" class="w-3 h-3" aria-hidden="true"></i>
+                  {% if item.created_at %}{{ item.created_at | dt('%d.%m.%Y') }} · {{ item.created_at | dt('%H:%M') }}{% else %}время неизвестно{% endif %}
+                </span>
+              </div>
+
+              {# описание #}
+              {% if item.summary %}
+                <p class="text-sm mt-1.5 leading-relaxed break-words" style="color:var(--ink-2)">{{ item.summary }}</p>
+              {% else %}
+                <p class="text-xs mt-1.5" style="color:var(--ink-4)">Без описания</p>
+              {% endif %}
+
+              {# подвал: идентификатор объекта и ссылка #}
+              {% if item.entity_id or link %}
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2.5 pt-2.5 border-t" style="border-color:var(--line)">
+                  {% if item.entity_id %}
+                    <span class="text-[11px] font-mono" style="color:var(--ink-4)">
+                      {{ item.entity or 'объект' }} #{{ item.entity_id }}
+                    </span>
+                  {% endif %}
+                  {% if link %}
+                    <a href="{{ link }}" class="inline-flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
+                       style="color:var(--brand)">
+                      <i data-lucide="arrow-up-right" class="w-3.5 h-3.5" aria-hidden="true"></i>Открыть в панели
+                    </a>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+
+      {# ── пусто после фильтра ── #}
+      <div id="log-filter-empty" class="hidden py-10 text-center" aria-live="polite">
+        <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+              style="background:var(--surface-2);color:var(--ink-4)">
+          <i data-lucide="filter-x" class="w-6 h-6"></i>
+        </span>
+        <p class="font-display font-extrabold text-base">Ничего не нашлось</p>
+        <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+          Попробуйте выбрать другой тип действия или очистить поисковый запрос.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-5">
+          <button type="button" class="btn btn-ghost btn-sm" data-log-filter="all" data-log-reset>
+            <i data-lucide="rotate-ccw"></i>Сбросить фильтры
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  {# ══════════════════ ПУСТОЕ СОСТОЯНИЕ ══════════════════ #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="scroll-text" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Пока пусто</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      Журнал заполняется сам: как только кто-то создаст сервис, отредактирует курс, обновит настройки
+      или войдёт в панель, здесь появится запись — кто, что и когда сделал.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary btn-sm">
+        <i data-lucide="layout-dashboard"></i>На дашборд
+      </a>
+      <a href="{{ url_for('admin.users') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="users"></i>Пользователи
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-log-filter]'));
+    var entries = Array.prototype.slice.call(document.querySelectorAll('[data-log-entry]'));
+    if (!chips.length || !entries.length) return;
+
+    var days = Array.prototype.slice.call(document.querySelectorAll('[data-log-day]'));
+    var resets = Array.prototype.slice.call(document.querySelectorAll('[data-log-reset]'));
+    var search = document.getElementById('log-search');
+    var clearBtn = document.getElementById('log-search-clear');
+    var counter = document.getElementById('log-visible-count');
+    var emptyBox = document.getElementById('log-filter-empty');
+
+    var state = { action: 'all', q: '' };
+
+    function apply() {
+      var shown = 0;
+      var visibleDays = Object.create(null);
+
+      entries.forEach(function (entry) {
+        var byAction = state.action === 'all' || entry.getAttribute('data-action') === state.action;
+        var byText = !state.q || (entry.getAttribute('data-search') || '').indexOf(state.q) !== -1;
+        var match = byAction && byText;
+        entry.classList.toggle('hidden', !match);
+        if (match) {
+          shown += 1;
+          visibleDays[entry.getAttribute('data-day')] = true;
+        }
+      });
+
+      days.forEach(function (day) {
+        day.classList.toggle('hidden', !visibleDays[day.getAttribute('data-log-day')]);
+      });
+
+      chips.forEach(function (chip) {
+        var active = chip.getAttribute('data-log-filter') === state.action;
+        chip.classList.toggle('is-active', active);
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      if (counter) counter.textContent = String(shown);
+      if (emptyBox) emptyBox.classList.toggle('hidden', shown !== 0);
+      if (clearBtn) clearBtn.classList.toggle('hidden', !state.q);
+    }
+
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        state.action = chip.getAttribute('data-log-filter') || 'all';
+        apply();
+      });
+    });
+
+    resets.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.action = 'all';
+        state.q = '';
+        if (search) search.value = '';
+        apply();
+        if (search) search.focus();
+      });
+    });
+
+    if (search) {
+      search.addEventListener('input', function () {
+        state.q = search.value.trim().toLowerCase();
+        apply();
+      });
+      search.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && search.value) {
+          search.value = '';
+          state.q = '';
+          apply();
+        }
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        if (search) { search.value = ''; search.focus(); }
+        state.q = '';
+        apply();
+      });
+    }
+
+    apply();
+  })();
+</script>
+{% endblock %}

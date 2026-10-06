@@ -1,0 +1,79 @@
+{# Карточка сервиса. Параметры: service, compact (bool) #}
+{% set compact = compact | default(false) %}
+<article data-card
+         data-category="{{ service.category.slug if service.category else '' }}"
+         data-name="{{ service.tr('name') }}"
+         data-views="{{ service.views or 0 }}"
+         data-position="{{ service.position or 0 }}"
+         data-course="{{ 1 if service.has_course else 0 }}"
+         data-search="{{ service.tr('name') }} {{ service.tr('tagline') }} {{ service.tags | map(attribute='name_ru') | join(' ') }} {{ service.category.tr('name') if service.category else '' }}"
+         class="card card-hover svc-card group flex flex-col h-full p-6"
+         style="--glow:{{ service.color }}">
+
+  <div class="flex items-start justify-between gap-3 mb-5">
+    <span class="svc-icon">
+      {% if service.logo %}
+        <img src="{{ url_for('static', filename=service.logo) }}" alt="" class="w-8 h-8 object-contain">
+      {% else %}
+        <i data-lucide="{{ service.icon or 'app-window' }}" class="w-6 h-6"></i>
+      {% endif %}
+    </span>
+
+    <div class="flex items-center gap-1.5">
+      {% if service.status != 'active' %}
+        <span class="badge badge-{{ service.status_color }}">{{ service.status_label }}</span>
+      {% else %}
+        <span class="badge badge-emerald"><span class="pulse-dot"></span>{{ service.status_label }}</span>
+      {% endif %}
+      {% if current_user.is_authenticated %}
+        <button data-fav="{{ service.id }}" aria-label="В избранное"
+                class="w-8 h-8 grid place-items-center rounded-lg transition-all hover:bg-[var(--brand-50)]"
+                style="color:{{ 'var(--brand)' if current_user.has_favorite(service.id) else 'var(--ink-4)' }}">
+          <i data-lucide="heart" class="w-4 h-4" {% if current_user.has_favorite(service.id) %}style="fill:currentColor"{% endif %}></i>
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+    <a href="{{ url_for('public.service_detail', slug=service.slug) }}" class="before:absolute before:inset-0 before:z-10">
+      {{ service.tr('name') }}
+    </a>
+  </h3>
+
+  <p class="text-sm ink-muted leading-relaxed flex-1">
+    {{ service.tr('tagline') or (service.tr('description') | excerpt(120)) }}
+  </p>
+
+  {% if not compact %}
+    <div class="flex flex-wrap items-center gap-1.5 mt-4">
+      {% if service.category %}
+        <span class="badge badge-slate">
+          <i data-lucide="{{ service.category.icon }}" class="w-3 h-3"></i>
+          {{ service.category.tr('name') }}
+        </span>
+      {% endif %}
+      {% if service.has_course %}
+        <span class="badge badge-brand">
+          <i data-lucide="graduation-cap" class="w-3 h-3"></i>
+          {{ service.course.lesson_count }} {{ service.course.lesson_count | plural('урок', 'урока', 'уроков') }}
+        </span>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="flex items-center justify-between mt-5 pt-4 border-t" style="border-color:var(--line)">
+    <span class="text-xs font-semibold inline-flex items-center gap-1.5 transition-colors group-hover:text-[var(--brand)]" style="color:var(--ink-3)">
+      {{ t('action.details') }}
+      <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"></i>
+    </span>
+    {% if service.url %}
+      <a href="{{ service.url }}" target="_blank" rel="noopener" data-track-service="{{ service.id }}"
+         class="relative z-20 text-xs font-semibold inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all hover:bg-[var(--brand-50)]"
+         style="color:{{ service.color }}" onclick="event.stopPropagation()">
+        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        Открыть
+      </a>
+    {% endif %}
+  </div>
+</article>

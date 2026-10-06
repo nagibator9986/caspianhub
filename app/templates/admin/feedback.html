@@ -1,0 +1,236 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Обращения{% endblock %}
+{% block heading %}Обращения{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Письма из формы поддержки — отвечайте, меняйте статус и оставляйте заметки для коллег</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.support') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="life-buoy"></i><span class="hidden sm:inline">Форма на сайте</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{% set status_labels = {'new': 'Новая', 'in_progress': 'В работе', 'done': 'Закрыта'} %}
+{% set status_colors = {'new': 'rose', 'in_progress': 'amber', 'done': 'emerald'} %}
+{% set status_icons  = {'new': 'mail', 'in_progress': 'loader', 'done': 'check-check'} %}
+
+{% set new_count = counts['new'] %}
+{% set progress_count = counts['in_progress'] %}
+{% set done_count = counts['done'] %}
+{% set total_count = counts.values() | sum %}
+
+{# ══════════════════ ФИЛЬТРЫ-МЕТРИКИ ══════════════════ #}
+<div class="card p-4 sm:p-5 mb-6">
+  <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Фильтр обращений по статусу">
+    <span class="text-[11px] font-extrabold uppercase tracking-[.12em] mr-1" style="color:var(--ink-4)">Статус</span>
+
+    {% set filters = [
+      (none,          'inbox',       'Все',       total_count,    'Все обращения'),
+      ('new',         'mail',        'Новые',     new_count,      'Ещё никто не взял в работу'),
+      ('in_progress', 'loader',      'В работе',  progress_count, 'Кто-то уже разбирается'),
+      ('done',        'check-check', 'Закрытые',  done_count,     'Вопрос решён'),
+    ] %}
+
+    {% for value, icon, label, count, hint in filters %}
+      <a href="{{ url_for('admin.feedback', status=value) if value else url_for('admin.feedback') }}"
+         class="chip {% if status == value %}is-active{% endif %}"
+         title="{{ hint }}"
+         {% if status == value %}aria-current="page"{% endif %}>
+        <i data-lucide="{{ icon }}" class="w-3.5 h-3.5"></i>{{ label }}
+        <span class="tabular-nums" style="color:var(--ink-4)">{{ count }}</span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <p class="text-[11px] ink-muted mt-3">
+    {% if new_count %}
+      <i data-lucide="bell-dot" class="w-3.5 h-3.5 inline-block align-[-2px]" style="color:var(--brand)"></i>
+      {{ new_count }} {{ new_count | plural('новое обращение ждёт', 'новых обращения ждут', 'новых обращений ждут') }} ответа —
+      они отмечены брендовой полосой слева.
+    {% else %}
+      <i data-lucide="check" class="w-3.5 h-3.5 inline-block align-[-2px]" style="color:#10B981"></i>
+      Новых обращений нет — все письма разобраны.
+    {% endif %}
+  </p>
+</div>
+
+{% if items %}
+  {# ══════════════════ СПИСОК ОБРАЩЕНИЙ ══════════════════ #}
+  <p class="text-xs ink-muted mb-3">
+    Показано {{ items | length }} {{ items | length | plural('обращение', 'обращения', 'обращений') }}{% if status %} со статусом «{{ status_labels.get(status, 'Новая') | lower }}»{% endif %} — свежие сверху
+  </p>
+
+  <div class="space-y-4">
+    {% for item in items %}
+      {% set is_new = item.status == 'new' %}
+      {% set color = status_colors.get(item.status, 'slate') %}
+
+      <article id="feedback-{{ item.id }}" class="card p-5 sm:p-6"
+               {% if is_new %}style="border-left:3px solid var(--brand)"{% endif %}>
+
+        {# ── шапка: автор, контакты, статус, дата, удаление ── #}
+        <div class="flex flex-wrap items-start gap-4">
+
+          <span class="flex-none grid place-items-center w-11 h-11 rounded-2xl text-sm font-extrabold text-white"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2))" aria-hidden="true">
+            {{ (item.name or item.email or '?') | trim | first | upper }}
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-display font-bold text-base leading-tight truncate">
+              {{ item.name or 'Без имени' }}
+            </p>
+            {% if item.email %}
+              <a href="mailto:{{ item.email }}?subject={{ ('Ответ на обращение — ' ~ (item.topic or 'вопрос')) | urlencode }}"
+                 class="inline-flex items-center gap-1.5 text-xs mt-1 transition-colors hover:text-[var(--brand)] break-all"
+                 style="color:var(--ink-3)"
+                 aria-label="Написать письмо на {{ item.email }}">
+                <i data-lucide="at-sign" class="w-3.5 h-3.5 flex-none"></i>{{ item.email }}
+              </a>
+            {% else %}
+              <span class="inline-flex items-center gap-1.5 text-xs mt-1" style="color:var(--ink-4)">
+                <i data-lucide="mail-x" class="w-3.5 h-3.5 flex-none"></i>Почта не указана — ответить не получится
+              </span>
+            {% endif %}
+
+            <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
+              <span class="badge badge-slate">
+                <i data-lucide="tag" class="w-3.5 h-3.5"></i>{{ item.topic or 'Вопрос' }}
+              </span>
+
+              <span class="badge badge-{{ color }}">
+                <i data-lucide="{{ status_icons.get(item.status, 'mail') }}" class="w-3.5 h-3.5"></i>{{ item.status_label }}
+              </span>
+
+              {% if item.service %}
+                <a href="{{ url_for('public.service_detail', slug=item.service.slug) }}"
+                   target="_blank" rel="noopener"
+                   class="badge badge-brand transition-transform hover:-translate-y-px"
+                   title="Открыть страницу сервиса на сайте">
+                  <i data-lucide="app-window" class="w-3.5 h-3.5"></i>{{ item.service.tr('name') }}
+                </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-none ml-auto">
+            {% if item.created_at %}
+              <span class="inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap" style="color:var(--ink-4)"
+                    title="Обращение получено {{ item.created_at | dt }}">
+                <i data-lucide="calendar-clock" class="w-3.5 h-3.5 flex-none"></i>{{ item.created_at | date_ru }}
+              </span>
+            {% endif %}
+
+            <form method="post" action="{{ url_for('admin.feedback_delete', item_id=item.id) }}"
+                  data-confirm="Удалить обращение от {{ item.name or item.email or 'анонимного автора' }}? Восстановить его не получится.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                      style="border-color:var(--line);color:var(--ink-3)"
+                      aria-label="Удалить обращение №{{ item.id }}" title="Удалить обращение">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {# ── текст обращения ── #}
+        <div class="mt-4 rounded-xl p-4 text-sm leading-relaxed whitespace-pre-line break-words"
+             style="background:var(--surface-2);color:var(--ink-2)">{{ item.message }}</div>
+
+        {# ── обработка: статус + заметка ── #}
+        <form method="post" action="{{ url_for('admin.feedback_update', item_id=item.id) }}"
+              class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="grid gap-4 lg:grid-cols-3">
+            <div>
+              <label class="label" for="status-{{ item.id }}">Статус обращения</label>
+              <select class="field" id="status-{{ item.id }}" name="status">
+                {% for value, label in status_labels.items() %}
+                  <option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <p class="help">Отметьте «В работе», чтобы коллеги видели: вопросом уже занимаются.</p>
+            </div>
+
+            <div class="lg:col-span-2">
+              <label class="label" for="note-{{ item.id }}">Заметка для коллег</label>
+              <textarea class="field !min-h-[5.5rem]" id="note-{{ item.id }}" name="admin_note" rows="3"
+                        maxlength="2000"
+                        placeholder="Например: ответила письмом, передала вопрос в учебную часть">{{ item.admin_note or '' }}</textarea>
+              <p class="help">Видна только сотрудникам в панели — автор обращения её не увидит.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-2 mt-4">
+            {% if item.email %}
+              <a href="mailto:{{ item.email }}?subject={{ ('Ответ на обращение — ' ~ (item.topic or 'вопрос')) | urlencode }}"
+                 class="btn btn-ghost btn-sm">
+                <i data-lucide="reply"></i>Ответить письмом
+              </a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i data-lucide="save"></i>Сохранить
+            </button>
+          </div>
+        </form>
+      </article>
+    {% endfor %}
+  </div>
+
+{% elif status %}
+  {# ══════════════════ ПУСТО ПОСЛЕ ФИЛЬТРА ══════════════════ #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+          style="background:var(--surface-2);color:var(--ink-4)">
+      <i data-lucide="filter-x" class="w-6 h-6"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-base">
+      Обращений со статусом «{{ status_labels.get(status, 'Новая') | lower }}» нет
+    </h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      {% if status == 'new' %}
+        Все письма разобраны — ни одно обращение не осталось без внимания.
+      {% elif status == 'in_progress' %}
+        Сейчас никто не взял обращение в работу. Откройте новое письмо и переведите его в этот статус.
+      {% else %}
+        Закрытых обращений пока нет. Как только вопрос решён, поставьте статус «Закрыта».
+      {% endif %}
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('admin.feedback') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="rotate-ccw"></i>Показать все
+      </a>
+      <a href="{{ url_for('public.support') }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+        <i data-lucide="life-buoy"></i>Форма поддержки
+      </a>
+    </div>
+  </div>
+
+{% else %}
+  {# ══════════════════ ПУСТОЕ СОСТОЯНИЕ ══════════════════ #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="inbox" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Пока пусто</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      Сюда попадают письма из формы поддержки: вопрос, проблема со входом, ошибка на сайте или предложение.
+      Каждому обращению можно поставить статус и оставить заметку для коллег.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('public.support') }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+        <i data-lucide="life-buoy"></i>Открыть форму поддержки
+      </a>
+      <a href="{{ url_for('admin.faq') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="circle-help"></i>Пополнить вопросы и ответы
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

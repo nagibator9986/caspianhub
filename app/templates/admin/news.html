@@ -1,0 +1,303 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Новости{% endblock %}
+{% block heading %}Новости{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Лента колледжа — новости, обновления сервисов и объявления</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.news_edit') }}" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новая запись</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{% set kind_labels = {'news': 'Новость', 'update': 'Обновление', 'announcement': 'Объявление'} %}
+{% set kind_colors = {'news': 'brand', 'update': 'sky', 'announcement': 'amber'} %}
+{% set kind_icons  = {'news': 'newspaper', 'update': 'refresh-cw', 'announcement': 'megaphone'} %}
+
+{% set total = items | length %}
+{% set published = items | selectattr('is_published') | list | length %}
+{% set drafts = total - published %}
+{% set pinned = items | selectattr('is_pinned') | list | length %}
+
+{# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('newspaper', total, 'всего записей', 'в ленте колледжа', '#EB5A40'),
+    ('globe', published, 'опубликовано', 'видны читателям', '#10B981'),
+    ('file-pen-line', drafts, 'черновиков', 'скрыты от гостей', '#F59E0B'),
+    ('pin', pinned, 'закреплено', 'наверху ленты', '#0EA5E9'),
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{% if items %}
+  {# ══════════════════ ТАБЛИЦА ══════════════════ #}
+  <div class="card overflow-hidden">
+
+    {# ── шапка карточки: заголовок + ссылка на сайт ── #}
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b" style="border-color:var(--line)">
+      <div class="min-w-0">
+        <h2 class="font-display font-bold text-base">Лента</h2>
+        <p class="text-xs ink-muted mt-0.5">
+          Показано <span id="news-visible-count" class="font-semibold tabular-nums" style="color:var(--ink)">{{ total }}</span>
+          из {{ total }} {{ total | plural('записи', 'записей', 'записей') }} — свежие сверху
+        </p>
+      </div>
+      <a href="{{ url_for('public.news') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+        <i data-lucide="external-link"></i><span class="hidden sm:inline">Лента на сайте</span>
+      </a>
+    </div>
+
+    {# ── чипы-фильтры по типу (клиентские) ── #}
+    <div class="px-5 py-3 border-b flex flex-wrap items-center gap-2"
+         style="border-color:var(--line);background:var(--surface-2)"
+         role="group" aria-label="Фильтр по типу записи">
+      <span class="text-[11px] font-extrabold uppercase tracking-[.12em] mr-1" style="color:var(--ink-4)">Тип</span>
+
+      <button type="button" class="chip is-active" data-news-filter="all" aria-pressed="true">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>Все
+        <span class="tabular-nums" style="color:var(--ink-4)">{{ total }}</span>
+      </button>
+
+      {% for value, label in kind_labels.items() %}
+        {% set kind_count = items | selectattr('kind', 'equalto', value) | list | length %}
+        {% if kind_count %}
+          <button type="button" class="chip" data-news-filter="{{ value }}" aria-pressed="false">
+            <i data-lucide="{{ kind_icons.get(value, 'newspaper') }}" class="w-3.5 h-3.5"></i>{{ label }}
+            <span class="tabular-nums" style="color:var(--ink-4)">{{ kind_count }}</span>
+          </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="tbl min-w-[62rem]">
+        <thead>
+          <tr>
+            <th class="w-20">Обложка</th>
+            <th>Заголовок</th>
+            <th>Тип</th>
+            <th>Публикация</th>
+            <th class="text-right">Просмотры</th>
+            <th>Статус</th>
+            <th class="text-right">Действия</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in items %}
+            <tr data-news-row data-kind="{{ item.kind or 'news' }}">
+
+              {# ── миниатюра обложки ── #}
+              <td class="!py-2.5">
+                {% if item.cover %}
+                  <img src="{{ url_for('static', filename=item.cover) }}"
+                       alt="Обложка записи «{{ item.tr('title') }}»" loading="lazy"
+                       class="w-16 h-12 rounded-lg object-cover border"
+                       style="border-color:var(--line)">
+                {% else %}
+                  <span class="grid place-items-center w-16 h-12 rounded-lg border"
+                        style="background:var(--surface-2);border-color:var(--line);color:var(--ink-4)"
+                        title="Обложка не загружена">
+                    <i data-lucide="image-off" class="w-4 h-4"></i>
+                    <span class="sr-only">Без обложки</span>
+                  </span>
+                {% endif %}
+              </td>
+
+              {# ── заголовок + slug ── #}
+              <td>
+                <a href="{{ url_for('admin.news_edit', news_id=item.id) }}" class="group block min-w-0">
+                  <span class="flex items-center gap-1.5 min-w-0">
+                    {% if item.is_pinned %}
+                      <i data-lucide="pin" class="w-3.5 h-3.5 flex-none" style="color:var(--brand)"
+                         aria-hidden="true"></i>
+                      <span class="sr-only">Закреплено:</span>
+                    {% endif %}
+                    <span class="text-sm font-bold truncate max-w-[22rem] transition-colors group-hover:text-[var(--brand)]"
+                          style="color:var(--ink)">{{ item.tr('title') }}</span>
+                  </span>
+                  <span class="block text-[11px] font-mono truncate max-w-[22rem] mt-0.5" style="color:var(--ink-4)">
+                    /news/{{ item.slug }}
+                  </span>
+                </a>
+              </td>
+
+              {# ── тип ── #}
+              <td>
+                <span class="badge badge-{{ kind_colors.get(item.kind, 'slate') }}">
+                  <i data-lucide="{{ kind_icons.get(item.kind, 'newspaper') }}" class="w-3.5 h-3.5"></i>
+                  {{ item.kind_label }}
+                </span>
+              </td>
+
+              {# ── дата публикации ── #}
+              <td>
+                {% if item.published_at %}
+                  <span class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 flex-none" style="color:var(--ink-4)"></i>
+                    {{ item.published_at | date_ru }}
+                  </span>
+                {% else %}
+                  <span class="text-xs" style="color:var(--ink-4)">Дата не указана</span>
+                {% endif %}
+              </td>
+
+              {# ── просмотры ── #}
+              <td class="text-right">
+                <span class="inline-flex items-center gap-1 tabular-nums text-xs" title="Просмотры записи">
+                  <i data-lucide="eye" class="w-3.5 h-3.5" style="color:var(--ink-4)"></i>{{ item.views or 0 }}
+                </span>
+              </td>
+
+              {# ── статус ── #}
+              <td>
+                <span class="inline-flex flex-wrap items-center gap-1.5">
+                  {% if item.is_published %}
+                    <span class="badge badge-emerald"><i data-lucide="globe" class="w-3.5 h-3.5"></i>Опубликовано</span>
+                  {% else %}
+                    <span class="badge badge-slate"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i>Черновик</span>
+                  {% endif %}
+                  {% if item.is_pinned %}
+                    <span class="inline-grid place-items-center w-6 h-6 rounded-lg border"
+                          style="background:var(--brand-50);border-color:var(--brand-200);color:var(--brand)"
+                          title="Закреплено наверху ленты">
+                      <i data-lucide="pin" class="w-3.5 h-3.5"></i>
+                      <span class="sr-only">Закреплено</span>
+                    </span>
+                  {% endif %}
+                </span>
+              </td>
+
+              {# ── действия ── #}
+              <td>
+                <div class="flex items-center justify-end gap-1.5">
+                  <a href="{{ url_for('admin.news_edit', news_id=item.id) }}"
+                     class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                     style="border-color:var(--line);color:var(--ink-3)"
+                     aria-label="Редактировать «{{ item.tr('title') }}»" title="Редактировать">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                  </a>
+
+                  <a href="{{ url_for('public.news_detail', slug=item.slug) }}"
+                     target="_blank" rel="noopener"
+                     class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                     style="border-color:var(--line);color:var(--ink-3)"
+                     aria-label="Открыть «{{ item.tr('title') }}» на сайте" title="Посмотреть на сайте">
+                    <i data-lucide="eye" class="w-4 h-4"></i>
+                  </a>
+
+                  <form method="post" action="{{ url_for('admin.news_delete', news_id=item.id) }}"
+                        data-confirm="Удалить запись «{{ item.tr('title') }}» вместе с обложкой? Отменить не получится.">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                            style="border-color:var(--line);color:var(--ink-3)"
+                            aria-label="Удалить «{{ item.tr('title') }}»" title="Удалить">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ── пусто после фильтра по типу ── #}
+    <div id="news-filter-empty" class="hidden p-10 text-center" aria-live="polite">
+      <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+            style="background:var(--surface-2);color:var(--ink-4)">
+        <i data-lucide="filter-x" class="w-6 h-6"></i>
+      </span>
+      <p class="font-display font-extrabold text-base">Записей такого типа нет</p>
+      <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+        Выберите другой тип или создайте запись — она сразу появится в этом списке.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-2 mt-5">
+        <button type="button" class="btn btn-ghost btn-sm" data-news-filter="all">
+          <i data-lucide="rotate-ccw"></i>Показать все
+        </button>
+        <a href="{{ url_for('admin.news_edit') }}" class="btn btn-primary btn-sm">
+          <i data-lucide="plus"></i>Новая запись
+        </a>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  {# ══════════════════ ПУСТОЕ СОСТОЯНИЕ ══════════════════ #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="newspaper" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Пока пусто</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      Здесь будут новости колледжа, объявления и заметки об обновлениях сервисов.
+      Создайте первую запись — заголовок, короткий анонс и текст, остальное можно дописать позже.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <a href="{{ url_for('admin.news_edit') }}" class="btn btn-primary btn-sm">
+        <i data-lucide="plus"></i>Создать запись
+      </a>
+      <a href="{{ url_for('admin.home_sections') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="house"></i>Блок новостей на главной
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-news-filter]'));
+    var rows = Array.prototype.slice.call(document.querySelectorAll('[data-news-row]'));
+    if (!chips.length || !rows.length) return;
+
+    var resetButtons = Array.prototype.slice.call(document.querySelectorAll('button[data-news-filter="all"]'))
+      .filter(function (btn) { return chips.indexOf(btn) === -1; });
+    var emptyBox = document.getElementById('news-filter-empty');
+    var counter = document.getElementById('news-visible-count');
+
+    function apply(kind) {
+      var shown = 0;
+      rows.forEach(function (row) {
+        var match = kind === 'all' || row.getAttribute('data-kind') === kind;
+        row.classList.toggle('hidden', !match);
+        if (match) shown += 1;
+      });
+      chips.forEach(function (chip) {
+        var active = chip.getAttribute('data-news-filter') === kind;
+        chip.classList.toggle('is-active', active);
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      if (counter) counter.textContent = String(shown);
+      if (emptyBox) emptyBox.classList.toggle('hidden', shown !== 0);
+    }
+
+    chips.concat(resetButtons).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        apply(btn.getAttribute('data-news-filter') || 'all');
+      });
+    });
+
+    apply('all');
+  })();
+</script>
+{% endblock %}

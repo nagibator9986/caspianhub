@@ -1,0 +1,268 @@
+{% extends 'layouts/base.html' %}
+
+{% set course = cert.course %}
+{% set svc = course.service if course else None %}
+{% set holder = cert.user.full_name or cert.user.email %}
+{% set is_owner = current_user.is_authenticated and current_user.id == cert.user_id %}
+{% set platform = setting('site_name', 'Caspian College Hub') %}
+
+{% block title %}{{ t('learn.certificate') }} {{ cert.code }} — {{ platform }}{% endblock %}
+{% block description %}Сертификат {{ cert.code }}: {{ holder }} прошёл(ла) мини-курс «{{ course.tr('title') }}» с результатом {{ cert.score }}%.{% endblock %}
+
+{% block head %}
+<style>
+  /* Лист сертификата масштабируется целиком: размеры шрифтов заданы в cqw */
+  .cert-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.35rem}
+  .cert-sheet{container-type:inline-size;min-width:34rem}
+  .cert-corner{position:absolute;width:3.4cqw;height:3.4cqw;pointer-events:none}
+  .cert-rule{height:2px;border-radius:99px}
+
+  @media print{
+    @page{size:A4 landscape;margin:8mm}
+    .cert-scroll{overflow:visible!important;padding:0!important}
+    .cert-sheet{min-width:0!important;width:100%!important}
+    .container-hub{max-width:none!important;padding:0!important}
+    main{padding:0!important}
+    .certificate{border-radius:0!important}
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-hub py-8 sm:py-10">
+
+  {# ══════════════════════ ПАНЕЛЬ УПРАВЛЕНИЯ ══════════════════════ #}
+  <div class="no-print">
+
+    <nav class="flex items-center gap-2 text-xs mb-6 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Главная</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      {% if svc %}
+        <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ svc.tr('name') }}</a>
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      {% else %}
+        <a href="{{ url_for('public.courses') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Курсы</a>
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      {% endif %}
+      <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors truncate max-w-[14rem]">{{ course.tr('title') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('learn.certificate') }}</span>
+    </nav>
+
+    <div class="card p-6 sm:p-7 mb-8">
+      <div class="flex flex-col lg:flex-row lg:items-center gap-6">
+
+        <div class="flex items-start gap-4 flex-1 min-w-0 lg:min-w-[19rem]">
+          <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none text-white shadow-brand"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">
+            <i data-lucide="award" class="w-6 h-6"></i>
+          </span>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="badge badge-emerald"><i data-lucide="badge-check" class="w-3 h-3"></i>Подтверждён</span>
+              <span class="badge badge-brand"><i data-lucide="target" class="w-3 h-3"></i>{{ cert.score }}%</span>
+              <span class="badge badge-slate"><i data-lucide="calendar" class="w-3 h-3"></i>{{ cert.issued_at | date_ru }}</span>
+            </div>
+            <h1 class="font-display text-xl sm:text-2xl font-extrabold leading-tight">
+              {% if is_owner %}Ваш сертификат готов{% else %}Сертификат {{ cert.code }}{% endif %}
+            </h1>
+            <p class="text-sm ink-muted mt-1">
+              {% if is_owner %}
+                Вы прошли мини-курс «{{ course.tr('title') }}». Распечатайте сертификат или поделитесь ссылкой.
+              {% else %}
+                Выдан за прохождение мини-курса «{{ course.tr('title') }}» на платформе {{ platform }}.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 lg:justify-end lg:max-w-[33rem]">
+          <button type="button" onclick="window.print()" class="btn btn-primary magnetic">
+            <i data-lucide="printer"></i> Скачать / Распечатать
+          </button>
+          <button type="button" data-copy="{{ request.url }}" class="btn btn-soft" aria-label="Скопировать ссылку на сертификат">
+            <i data-lucide="link"></i> Скопировать ссылку
+          </button>
+          <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-ghost">
+            <i data-lucide="arrow-left"></i> К курсу
+          </a>
+          {% if is_owner %}
+            <a href="{{ url_for('account.certificates') }}" class="btn btn-ghost" aria-label="Все мои сертификаты">
+              <i data-lucide="folder-open"></i> Мои сертификаты
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <p class="flex items-center gap-2 text-[11px] ink-muted mt-5 sm:hidden">
+        <i data-lucide="move-horizontal" class="w-3.5 h-3.5 flex-none"></i>
+        Лист сертификата можно прокрутить вбок — или сразу отправить на печать.
+      </p>
+    </div>
+  </div>
+
+  {# ══════════════════════ ЛИСТ СЕРТИФИКАТА ══════════════════════ #}
+  <div class="cert-scroll">
+    <div class="cert-sheet">
+      <div class="certificate aspect-[1.414/1] shadow-hero"
+           role="img"
+           aria-label="Сертификат {{ cert.code }}: {{ holder }} прошёл мини-курс {{ course.tr('title') }} с результатом {{ cert.score }} процентов">
+
+        {# Угловые элементы #}
+        <span class="cert-corner" aria-hidden="true"
+              style="top:2.2cqw;left:2.2cqw;border-top:2px solid var(--brand);border-left:2px solid var(--brand);border-top-left-radius:.6cqw"></span>
+        <span class="cert-corner" aria-hidden="true"
+              style="top:2.2cqw;right:2.2cqw;border-top:2px solid var(--brand);border-right:2px solid var(--brand);border-top-right-radius:.6cqw"></span>
+        <span class="cert-corner" aria-hidden="true"
+              style="bottom:2.2cqw;left:2.2cqw;border-bottom:2px solid var(--brand);border-left:2px solid var(--brand);border-bottom-left-radius:.6cqw"></span>
+        <span class="cert-corner" aria-hidden="true"
+              style="bottom:2.2cqw;right:2.2cqw;border-bottom:2px solid var(--brand);border-right:2px solid var(--brand);border-bottom-right-radius:.6cqw"></span>
+
+        {# Водяной знак #}
+        <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo.png') }}"
+             alt="" aria-hidden="true"
+             class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
+             style="width:46cqw;opacity:.045">
+
+        {# Содержимое #}
+        <div class="relative h-full flex flex-col items-center text-center"
+             style="padding:7cqw 8cqw 5.4cqw">
+
+          <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo.png') }}"
+               alt="Логотип Колледжа Каспийского университета"
+               class="object-contain" style="height:7cqw;margin-bottom:2.2cqw">
+
+          <p class="font-display font-extrabold uppercase cert-line text-3xl"
+             style="font-size:4.2cqw;line-height:1.1;color:var(--brand)">Сертификат</p>
+
+          <span class="cert-rule" aria-hidden="true"
+                style="width:14cqw;margin:2cqw 0 2.4cqw;background:linear-gradient(90deg,var(--brand),var(--brand-2))"></span>
+
+          <p class="uppercase opacity-55" style="font-size:1.35cqw;letter-spacing:.24em">подтверждает, что</p>
+
+          <p class="font-display font-extrabold" style="font-size:5cqw;line-height:1.16;margin-top:1.6cqw">{{ holder }}</p>
+
+          {% if cert.user.group_name or cert.user.specialty %}
+            <p class="opacity-55" style="font-size:1.35cqw;margin-top:.8cqw">
+              {{ cert.user.group_name }}{% if cert.user.group_name and cert.user.specialty %} · {% endif %}{{ cert.user.specialty }}
+            </p>
+          {% endif %}
+
+          <p class="opacity-70" style="font-size:1.6cqw;margin-top:2.2cqw">успешно прошёл(ла) мини-курс</p>
+
+          <p class="font-display font-bold" style="font-size:2.7cqw;line-height:1.25;margin-top:1cqw;max-width:74cqw">
+            «{{ course.tr('title') }}»
+          </p>
+
+          <p class="inline-flex items-center font-bold"
+             style="gap:.8cqw;margin-top:2.2cqw;padding:.9cqw 2.2cqw;border-radius:99px;font-size:1.6cqw;
+                    color:var(--brand);background:color-mix(in srgb,var(--brand) 9%,transparent);
+                    border:1px solid color-mix(in srgb,var(--brand) 28%,transparent)">
+            Результат — {{ cert.score }}%
+          </p>
+
+          {# Подвал листа #}
+          <div class="w-full mt-auto flex items-end justify-between" style="gap:4cqw;padding-top:3.4cqw">
+
+            <div class="text-left">
+              <p class="uppercase opacity-45" style="font-size:1.05cqw;letter-spacing:.18em">Дата выдачи</p>
+              <p class="font-semibold" style="font-size:1.55cqw;margin-top:.5cqw">{{ cert.issued_at | date_ru }}</p>
+            </div>
+
+            <div class="flex-1 flex flex-col items-center">
+              <span class="cert-rule w-full" aria-hidden="true"
+                    style="max-width:26cqw;background:color-mix(in srgb,var(--brand) 45%,transparent)"></span>
+              <p class="font-display font-bold" style="font-size:1.6cqw;margin-top:.9cqw">Колледж Каспийского университета</p>
+              <p class="uppercase opacity-45" style="font-size:1.05cqw;letter-spacing:.18em;margin-top:.45cqw">{{ platform }}</p>
+            </div>
+
+            <div class="text-right">
+              <p class="uppercase opacity-45" style="font-size:1.05cqw;letter-spacing:.18em">Код сертификата</p>
+              <p class="font-mono font-bold" style="font-size:1.55cqw;margin-top:.5cqw;letter-spacing:.06em;color:var(--brand)">{{ cert.code }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ══════════════════════ ПОЯСНЕНИЕ И ПРОВЕРКА ══════════════════════ #}
+  <div class="no-print grid lg:grid-cols-3 gap-5 mt-8">
+
+    <div class="card p-6 lg:col-span-2">
+      <div class="flex items-start gap-4">
+        <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="info" class="w-5 h-5"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="font-display font-bold text-sm mb-1.5">Что это за документ</p>
+          <p class="text-sm leading-relaxed" style="color:var(--ink-2)">
+            Это внутреннее подтверждение освоения сервиса платформы, не документ об образовании
+            государственного образца. Проверить подлинность можно по коду.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <p class="font-display font-bold text-sm mb-3">Проверка подлинности</p>
+      <div class="flex items-center gap-2 p-3 rounded-xl mb-3" style="background:var(--surface-2)">
+        <i data-lucide="hash" class="w-4 h-4 flex-none" style="color:var(--brand)"></i>
+        <span class="font-mono text-sm font-bold tracking-wide truncate">{{ cert.code }}</span>
+      </div>
+      <button type="button" data-copy="{{ cert.code }}" class="btn btn-soft btn-sm btn-block"
+              aria-label="Скопировать код сертификата">
+        <i data-lucide="copy"></i> Скопировать код
+      </button>
+      <p class="help mt-3">Откройте эту страницу по ссылке с кодом — и увидите те же данные о владельце и курсе.</p>
+    </div>
+  </div>
+
+  {# ══════════════════════ ЧТО ДАЛЬШЕ ══════════════════════ #}
+  <div class="no-print card p-6 mt-5 flex flex-col sm:flex-row sm:items-center gap-4">
+    {% if svc %}
+      <span class="svc-icon !w-11 !h-11 !rounded-xl flex-none" style="--glow:{{ svc.color }}">
+        <i data-lucide="{{ svc.icon }}" class="w-5 h-5"></i>
+      </span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold">Теперь — к практике</p>
+        <p class="text-xs ink-muted mt-0.5">Откройте {{ svc.tr('name') }} и примените всё, чему научились на курсе.</p>
+      </div>
+      {% if svc.url %}
+        <a href="{{ svc.url }}" target="_blank" rel="noopener" data-track-service="{{ svc.id }}" class="btn btn-ghost btn-sm flex-none">
+          <i data-lucide="external-link"></i> Открыть сервис
+        </a>
+      {% endif %}
+      <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="btn btn-soft btn-sm flex-none">
+        <i data-lucide="file-text"></i> О сервисе
+      </a>
+    {% else %}
+      <span class="grid place-items-center w-11 h-11 rounded-xl flex-none" style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+      </span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold">Продолжайте обучение</p>
+        <p class="text-xs ink-muted mt-0.5">На платформе есть и другие короткие курсы по сервисам колледжа.</p>
+      </div>
+      <a href="{{ url_for('public.courses') }}" class="btn btn-soft btn-sm flex-none">
+        <i data-lucide="library"></i> Все курсы
+      </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Ctrl/Cmd + P и клавиша P печатают сертификат
+  document.addEventListener('keydown', function (e) {
+    if (e.target.matches('input, textarea, select')) return;
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'p' || e.key === 'з')) {
+      e.preventDefault();
+      window.print();
+    }
+  });
+</script>
+{% endblock %}

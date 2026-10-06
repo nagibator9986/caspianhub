@@ -1,0 +1,350 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Поддержка — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Задайте вопрос о цифровых сервисах колледжа: вход в кабинет, ошибки на сайте, предложения по улучшению. Отвечаем в течение рабочего дня.{% endblock %}
+
+{% block content %}
+{% set contact_address = setting('contact_address', 'г. Алматы, проспект Сейфуллина, 521') %}
+{% set contact_phone = setting('contact_phone', '+7 (727) 279-3777') %}
+{% set contact_email = setting('contact_email', 'info@ccu.edu.kz') %}
+{% set contact_hours = setting('contact_hours', 'Пн–Пт, 09:00–18:00') %}
+{% set whatsapp_url = setting('social_whatsapp', 'https://wa.me/77064308461') %}
+{% set phone_tel = contact_phone | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') %}
+{% set selected_service = request.args.get('service') %}
+{% set selected_topic = request.args.get('topic') %}
+{% set topics = ['Вопрос', 'Проблема со входом', 'Ошибка на сайте', 'Предложение', 'Другое'] %}
+
+{# ══════════════════════ ШАПКА СТРАНИЦЫ ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-12 lg:pb-16">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Главная</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">Поддержка</span>
+    </nav>
+
+    <div class="max-w-2xl">
+      <span class="badge badge-brand animate-fade-up">
+        <span class="pulse-dot"></span>
+        Отвечаем в течение рабочего дня
+      </span>
+
+      <h1 class="font-display text-3xl sm:text-4xl xl:text-[2.85rem] font-extrabold leading-[1.08] mt-6 animate-fade-up" style="animation-delay:.06s">
+        Мы рядом и готовы <span class="text-gradient">помочь</span>
+      </h1>
+
+      <p class="mt-5 text-lg ink-muted leading-relaxed animate-fade-up" style="animation-delay:.12s">
+        Опишите, что не получается, — и мы подскажем. Если вопрос про конкретный сервис,
+        выберите его в форме: так ответ придёт быстрее.
+      </p>
+
+      <div class="flex flex-wrap items-center gap-3 mt-8 animate-fade-up" style="animation-delay:.18s">
+        <a href="{{ url_for('public.faq') }}" class="btn btn-ghost">
+          <i data-lucide="help-circle"></i>
+          Частые вопросы
+        </a>
+        <a href="{{ url_for('public.services') }}" class="btn btn-ghost">
+          <i data-lucide="layout-grid"></i>
+          {{ t('action.all_services') }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ФОРМА И КОНТАКТЫ ══════════════════════ #}
+<div class="container-hub pb-24">
+  <div class="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+
+    {# ── Форма обращения ─────────────────────────────────────── #}
+    <div class="lg:col-span-7">
+      <div class="card p-6 sm:p-8 shadow-lift reveal">
+
+        <div class="flex items-start gap-4 mb-7">
+          <span class="svc-icon flex-none">
+            <i data-lucide="send" class="w-6 h-6"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display text-xl font-extrabold leading-snug">Написать в поддержку</h2>
+            <p class="text-sm ink-muted mt-1.5 leading-relaxed">
+              Заполните форму — обращение попадёт к команде платформы. Ответ придёт на указанную почту.
+            </p>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('public.support') }}" class="space-y-5">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label class="label" for="support-name">Как к вам обращаться</label>
+              <input class="field" type="text" id="support-name" name="name" maxlength="160"
+                     autocomplete="name" placeholder="Например, Айгерим"
+                     value="{{ current_user.full_name if current_user.is_authenticated else '' }}">
+            </div>
+
+            <div>
+              <label class="label" for="support-email">Электронная почта</label>
+              <input class="field" type="email" id="support-email" name="email" maxlength="160"
+                     autocomplete="email" placeholder="you@ccu.edu.kz"
+                     aria-describedby="support-email-help"
+                     value="{{ current_user.email if current_user.is_authenticated else '' }}">
+              <p class="help" id="support-email-help">Нужна, чтобы прислать вам ответ.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label class="label" for="support-topic">Тема обращения</label>
+              <select class="field" id="support-topic" name="topic">
+                {% for topic in topics %}
+                  <option value="{{ topic }}" {% if selected_topic == topic %}selected{% endif %}>{{ topic }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label class="label" for="support-service">Сервис</label>
+              {% if services %}
+                <select class="field" id="support-service" name="service_id" aria-describedby="support-service-help">
+                  <option value="">Не связано с сервисом</option>
+                  {% for item in services %}
+                    <option value="{{ item.id }}" {% if selected_service and selected_service == item.id | string %}selected{% endif %}>
+                      {{ item.tr('name') }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <p class="help" id="support-service-help">Выберите, если вопрос про конкретный сервис.</p>
+              {% else %}
+                <div class="rounded-xl border border-dashed px-4 py-3.5 flex items-start gap-3"
+                     style="border-color:var(--line-strong);background:var(--surface-2)">
+                  <i data-lucide="app-window" class="w-4 h-4 flex-none mt-0.5" style="color:var(--ink-4)"></i>
+                  <p class="text-xs ink-muted leading-relaxed">
+                    Каталог сервисов пока пуст — просто опишите вопрос в сообщении, мы разберёмся.
+                  </p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <label class="label" for="support-message">Сообщение <span style="color:var(--brand)">*</span></label>
+            <textarea class="field" id="support-message" name="message" rows="7" required
+                      minlength="10" maxlength="4000" data-maxlen="4000"
+                      aria-describedby="support-message-help"
+                      placeholder="Что произошло, на каком шаге и что вы уже пробовали? Чем подробнее — тем быстрее поможем."></textarea>
+            <p class="help" id="support-message-help">Минимум 10 символов. Скриншот можно описать словами или прислать письмом на {{ contact_email }}.</p>
+          </div>
+
+          {# Ловушка для ботов — обычные посетители это поле не видят #}
+          <div class="hidden" aria-hidden="true">
+            <label for="support-website">Не заполняйте это поле</label>
+            <input type="text" id="support-website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="flex flex-wrap items-center gap-4 pt-2">
+            <button type="submit" class="btn btn-primary btn-lg magnetic">
+              <i data-lucide="send"></i>
+              {{ t('action.send') }}
+            </button>
+            <p class="text-xs ink-muted leading-relaxed flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4 flex-none" style="color:var(--ink-4)"></i>
+              Данные используем только для ответа на обращение.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# ── Контакты и быстрые ответы ───────────────────────────── #}
+    <aside class="lg:col-span-5 lg:sticky lg:top-24 space-y-6">
+
+      <div class="card p-6 shadow-card reveal" data-reveal-delay="80">
+        <h2 class="font-display font-bold text-sm uppercase tracking-wider mb-5" style="color:var(--ink-4)">
+          Контакты колледжа
+        </h2>
+
+        <dl class="space-y-4 text-sm">
+          <div class="flex gap-3">
+            <dt class="flex-none w-8 h-8 grid place-items-center rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="map-pin" class="w-4 h-4"></i>
+            </dt>
+            <dd class="min-w-0">
+              <span class="block text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)">Адрес</span>
+              <span class="block mt-0.5 font-medium">{{ contact_address }}</span>
+            </dd>
+          </div>
+
+          <div class="flex gap-3">
+            <dt class="flex-none w-8 h-8 grid place-items-center rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="phone" class="w-4 h-4"></i>
+            </dt>
+            <dd class="min-w-0">
+              <span class="block text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)">Телефон</span>
+              <a href="tel:{{ phone_tel }}" class="block mt-0.5 font-medium hover:text-[var(--brand)] transition-colors">{{ contact_phone }}</a>
+            </dd>
+          </div>
+
+          <div class="flex gap-3">
+            <dt class="flex-none w-8 h-8 grid place-items-center rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="mail" class="w-4 h-4"></i>
+            </dt>
+            <dd class="min-w-0">
+              <span class="block text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)">Почта</span>
+              <a href="mailto:{{ contact_email }}" class="block mt-0.5 font-medium break-all hover:text-[var(--brand)] transition-colors">{{ contact_email }}</a>
+            </dd>
+          </div>
+
+          <div class="flex gap-3">
+            <dt class="flex-none w-8 h-8 grid place-items-center rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="message-circle" class="w-4 h-4"></i>
+            </dt>
+            <dd class="min-w-0">
+              <span class="block text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)">WhatsApp</span>
+              <a href="{{ whatsapp_url }}" target="_blank" rel="noopener"
+                 class="inline-flex items-center gap-1.5 mt-0.5 font-medium hover:text-[var(--brand)] transition-colors">
+                Написать в мессенджер
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              </a>
+            </dd>
+          </div>
+
+          <div class="flex gap-3">
+            <dt class="flex-none w-8 h-8 grid place-items-center rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="clock" class="w-4 h-4"></i>
+            </dt>
+            <dd class="min-w-0">
+              <span class="block text-[11px] font-bold uppercase tracking-wide" style="color:var(--ink-4)">Часы работы</span>
+              <span class="block mt-0.5 font-medium">{{ contact_hours }}</span>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="card p-6 shadow-card reveal" data-reveal-delay="140">
+        <h2 class="font-display font-bold text-sm uppercase tracking-wider mb-5" style="color:var(--ink-4)">
+          Быстрые ответы
+        </h2>
+
+        {% set quick_questions = [
+          ('log-in', 'Как войти в личный кабинет?'),
+          ('key-round', 'Забыли пароль — что делать?'),
+          ('calendar-days', 'Где смотреть расписание и оценки?'),
+          ('file-text', 'Как заказать справку об обучении?')
+        ] %}
+
+        <ul class="space-y-2">
+          {% for icon, question in quick_questions %}
+            <li>
+              <a href="{{ url_for('public.faq') }}"
+                 class="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--brand-50)]">
+                <span class="flex-none w-8 h-8 grid place-items-center rounded-lg transition-colors"
+                      style="background:var(--surface-2);color:var(--ink-3)">
+                  <i data-lucide="{{ icon }}" class="w-4 h-4"></i>
+                </span>
+                <span class="text-sm font-medium leading-snug flex-1 transition-colors group-hover:text-[var(--brand)]">{{ question }}</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 flex-none transition-transform duration-300 group-hover:translate-x-1" style="color:var(--ink-4)"></i>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+
+        <a href="{{ url_for('public.services') }}" class="btn btn-soft btn-block btn-sm mt-5">
+          <i data-lucide="layout-grid"></i>
+          Посмотреть все сервисы
+        </a>
+      </div>
+    </aside>
+  </div>
+
+  {# ══════════════════════ ПОДСКАЗКИ ══════════════════════ #}
+  <div class="grid sm:grid-cols-3 gap-5 mt-16">
+
+    <a href="{{ url_for('public.faq') }}"
+       class="card card-hover svc-card group flex flex-col h-full p-6 reveal" style="--glow:var(--brand)">
+      <span class="svc-icon mb-5">
+        <i data-lucide="help-circle" class="w-6 h-6"></i>
+      </span>
+      <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+        Проверьте FAQ
+      </h3>
+      <p class="text-sm ink-muted leading-relaxed flex-1">
+        Большинство вопросов о входе, доступах и сервисах уже разобрано — ответ найдётся за минуту.
+      </p>
+      <span class="text-xs font-semibold inline-flex items-center gap-1.5 mt-5 pt-4 border-t transition-colors group-hover:text-[var(--brand)]"
+            style="border-color:var(--line);color:var(--ink-3)">
+        Открыть вопросы
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"></i>
+      </span>
+    </a>
+
+    <a href="mailto:{{ contact_email }}"
+       class="card card-hover svc-card group flex flex-col h-full p-6 reveal" data-reveal-delay="80" style="--glow:var(--brand-2)">
+      <span class="svc-icon mb-5">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </span>
+      <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+        Спросите куратора
+      </h3>
+      <p class="text-sm ink-muted leading-relaxed flex-1">
+        Вопросы про группу, справки и учебную часть быстрее решает куратор — напишите нам, и мы передадим.
+      </p>
+      <span class="text-xs font-semibold inline-flex items-center gap-1.5 mt-5 pt-4 border-t transition-colors group-hover:text-[var(--brand)]"
+            style="border-color:var(--line);color:var(--ink-3)">
+        {{ contact_email }}
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"></i>
+      </span>
+    </a>
+
+    <a href="{{ whatsapp_url }}" target="_blank" rel="noopener"
+       class="card card-hover svc-card group flex flex-col h-full p-6 reveal" data-reveal-delay="160" style="--glow:var(--brand)">
+      <span class="svc-icon mb-5">
+        <i data-lucide="message-circle" class="w-6 h-6"></i>
+      </span>
+      <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+        Напишите в WhatsApp
+      </h3>
+      <p class="text-sm ink-muted leading-relaxed flex-1">
+        Короткий вопрос удобнее задать в мессенджере — отвечаем в рабочие часы: {{ contact_hours }}.
+      </p>
+      <span class="text-xs font-semibold inline-flex items-center gap-1.5 mt-5 pt-4 border-t transition-colors group-hover:text-[var(--brand)]"
+            style="border-color:var(--line);color:var(--ink-3)">
+        Открыть чат
+        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+      </span>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Счётчик символов для полей с data-maxlen на публичных страницах */
+  (function () {
+    document.querySelectorAll('[data-maxlen]').forEach(function (field) {
+      if (field.dataset.counterReady) return;
+      field.dataset.counterReady = '1';
+
+      var max = parseInt(field.dataset.maxlen, 10);
+      if (!max) return;
+
+      var out = document.createElement('span');
+      out.className = 'help block text-right';
+      out.setAttribute('aria-live', 'polite');
+      field.insertAdjacentElement('afterend', out);
+
+      var update = function () {
+        var n = field.value.length;
+        out.textContent = n + ' / ' + max;
+        out.style.color = n > max * 0.9 ? 'var(--brand)' : 'var(--ink-4)';
+      };
+      field.addEventListener('input', update);
+      update();
+    });
+  })();
+</script>
+{% endblock %}

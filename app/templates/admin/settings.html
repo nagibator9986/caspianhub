@@ -1,0 +1,236 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Настройки{% endblock %}
+{% block heading %}Настройки сайта{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Бренд, тексты, контакты и возможности платформы</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="external-link"></i><span class="hidden sm:inline">На сайте</span>
+  </a>
+  <button type="submit" form="settings-form" class="btn btn-primary btn-sm">
+    <i data-lucide="check"></i><span class="hidden sm:inline">Сохранить</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set group_meta = {
+  'brand':    ('Бренд и цвета', 'palette', 'Название, логотип и фирменная палитра'),
+  'hero':     ('Первый экран', 'sparkles', 'Заголовок, подзаголовок и кнопки на главной'),
+  'general':  ('Общее', 'settings-2', 'Параметры отображения и служебные тексты'),
+  'contacts': ('Контакты', 'phone', 'Адрес, телефоны, почта и часы работы'),
+  'social':   ('Соцсети', 'share-2', 'Ссылки на официальные каналы колледжа'),
+  'footer':   ('Подвал', 'panel-bottom', 'Текст и правообладатель в нижней части сайта'),
+  'seo':      ('SEO', 'search', 'Как платформа выглядит в поиске и при отправке ссылки'),
+  'features': ('Возможности', 'toggle-right', 'Включение и отключение функций платформы')
+} %}
+
+{% set first_group = (groups.keys() | list)[0] if groups else 'brand' %}
+
+<form id="settings-form" method="post" action="{{ url_for('admin.settings') }}"
+      enctype="multipart/form-data" x-data="{ group: '{{ first_group }}' }">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="active_group" :value="group">
+
+  <div data-tabs="settings" data-tabs-key="settings" class="grid lg:grid-cols-12 gap-6 items-start">
+
+    {# ══════════════════ НАВИГАЦИЯ ПО ГРУППАМ ══════════════════ #}
+    <nav class="lg:col-span-3 lg:sticky lg:top-24" aria-label="Разделы настроек">
+      <div class="card p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+        {% for key, rows in groups.items() %}
+          {% set meta = group_meta.get(key, (key, 'square', '')) %}
+          <button type="button" data-tab="{{ key }}" @click="group = '{{ key }}'"
+                  class="admin-nav flex-none lg:w-full whitespace-nowrap">
+            <i data-lucide="{{ meta[1] }}"></i>
+            <span class="flex-1 text-left">{{ meta[0] }}</span>
+            <span class="text-[10px] font-bold opacity-60">{{ rows | length }}</span>
+          </button>
+        {% endfor %}
+      </div>
+
+      <div class="card p-4 mt-4 hidden lg:block">
+        <p class="text-xs ink-muted leading-relaxed">
+          Изменения применяются сразу после сохранения — перезапускать сервер не нужно.
+        </p>
+      </div>
+    </nav>
+
+    {# ══════════════════ ПАНЕЛИ НАСТРОЕК ══════════════════ #}
+    <div class="lg:col-span-9">
+      {% for key, rows in groups.items() %}
+        {% set meta = group_meta.get(key, (key, 'square', '')) %}
+        <div data-panel="{{ key }}">
+          <div class="card p-5 sm:p-6">
+
+            <div class="flex items-start gap-3 pb-5 mb-5 border-b" style="border-color:var(--line)">
+              <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+                    style="background:var(--brand-50);color:var(--brand)">
+                <i data-lucide="{{ meta[1] }}" class="w-5 h-5"></i>
+              </span>
+              <div class="min-w-0">
+                <h2 class="font-display font-bold text-base">{{ meta[0] }}</h2>
+                <p class="text-xs ink-muted mt-0.5">{{ meta[2] }}</p>
+              </div>
+            </div>
+
+            <div class="space-y-5">
+              {% for row in rows %}
+                <div class="{{ 'sm:flex sm:items-center sm:gap-4' if row.value_type == 'bool' else '' }}">
+
+                  {# ── Переключатель ── #}
+                  {% if row.value_type == 'bool' %}
+                    <label class="flex items-start gap-3 cursor-pointer flex-1">
+                      <span class="switch mt-0.5">
+                        <input type="checkbox" name="{{ row.key }}"
+                               {% if row.parsed %}checked{% endif %}>
+                        <span></span>
+                      </span>
+                      <span class="min-w-0">
+                        <span class="block text-sm font-semibold">{{ row.label or row.key }}</span>
+                        {% if row.hint %}<span class="block text-xs ink-muted mt-0.5">{{ row.hint }}</span>{% endif %}
+                      </span>
+                    </label>
+
+                  {# ── Цвет ── #}
+                  {% elif row.value_type == 'color' %}
+                    <label class="label" for="set-{{ row.key }}">{{ row.label or row.key }}</label>
+                    <div class="flex items-center gap-3">
+                      <input type="color" id="set-{{ row.key }}-picker"
+                             value="{{ row.value or '#EB5A40' }}"
+                             data-color-sync="#set-{{ row.key }}"
+                             class="w-12 h-11 rounded-xl border cursor-pointer flex-none p-1"
+                             style="border-color:var(--line-strong);background:var(--surface)"
+                             aria-label="Выбрать цвет: {{ row.label or row.key }}"
+                             {% if row.key in ('brand_color', 'brand_color_2') %}
+                               oninput="document.documentElement.style.setProperty('{{ '--brand' if row.key == 'brand_color' else '--brand-2' }}', this.value)"
+                             {% endif %}>
+                      <input type="text" id="set-{{ row.key }}" name="{{ row.key }}"
+                             value="{{ row.value }}" class="field font-mono !text-[13px] flex-1"
+                             placeholder="#EB5A40">
+                    </div>
+                    {% if row.hint %}<p class="help">{{ row.hint }}</p>{% endif %}
+
+                  {# ── Изображение ── #}
+                  {% elif row.value_type == 'image' %}
+                    <label class="label" for="set-{{ row.key }}-file">{{ row.label or row.key }}</label>
+                    <div class="flex items-start gap-4">
+                      <span class="grid place-items-center w-20 h-20 rounded-xl border flex-none overflow-hidden"
+                            style="border-color:var(--line);background:var(--surface-2)"
+                            id="set-{{ row.key }}-preview">
+                        {% if row.value %}
+                          <img src="{{ row.value if row.value.startswith('/') else url_for('static', filename=row.value) }}"
+                               alt="" class="w-full h-full object-contain">
+                        {% else %}
+                          <i data-lucide="image" class="w-7 h-7" style="color:var(--ink-4)"></i>
+                        {% endif %}
+                      </span>
+                      <div class="flex-1 min-w-0 space-y-2">
+                        <input type="file" id="set-{{ row.key }}-file" name="{{ row.key }}" accept="image/*"
+                               data-preview-for="#set-{{ row.key }}-preview"
+                               class="field !py-2 !text-xs">
+                        <input type="text" name="{{ row.key }}__text" value="{{ row.value }}"
+                               class="field font-mono !text-[12px] !py-2"
+                               placeholder="/static/img/ccu-logo.png"
+                               aria-label="Путь к изображению вручную">
+                        {% if row.hint %}<p class="help !mt-1">{{ row.hint }}</p>{% endif %}
+                      </div>
+                    </div>
+
+                  {# ── Многострочный текст ── #}
+                  {% elif row.value_type == 'textarea' %}
+                    <label class="label" for="set-{{ row.key }}">{{ row.label or row.key }}</label>
+                    <textarea id="set-{{ row.key }}" name="{{ row.key }}" rows="3" class="field">{{ row.value }}</textarea>
+                    {% if row.hint %}<p class="help">{{ row.hint }}</p>{% endif %}
+
+                  {# ── Структура JSON ── #}
+                  {% elif row.value_type == 'json' %}
+                    <label class="label" for="set-{{ row.key }}">{{ row.label or row.key }}</label>
+                    <textarea id="set-{{ row.key }}" name="{{ row.key }}" rows="6"
+                              class="field font-mono !text-[12px]" spellcheck="false">{{ row.value }}</textarea>
+                    <p class="help">{{ row.hint or 'Формат JSON — проверьте скобки и кавычки перед сохранением' }}</p>
+
+                  {# ── Число ── #}
+                  {% elif row.value_type == 'int' %}
+                    <label class="label" for="set-{{ row.key }}">{{ row.label or row.key }}</label>
+                    <input type="number" id="set-{{ row.key }}" name="{{ row.key }}"
+                           value="{{ row.value }}" class="field sm:max-w-[10rem]">
+                    {% if row.hint %}<p class="help">{{ row.hint }}</p>{% endif %}
+
+                  {# ── Ссылка и обычный текст ── #}
+                  {% else %}
+                    <label class="label" for="set-{{ row.key }}">{{ row.label or row.key }}</label>
+                    <input type="{{ 'url' if row.value_type == 'url' else 'text' }}"
+                           id="set-{{ row.key }}" name="{{ row.key }}" value="{{ row.value }}"
+                           class="field {{ 'font-mono !text-[13px]' if row.value_type == 'url' else '' }}"
+                           {% if row.value_type == 'url' %}placeholder="https://"{% endif %}>
+                    {% if row.hint %}<p class="help">{{ row.hint }}</p>{% endif %}
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+
+            {# ── Живой предпросмотр палитры ── #}
+            {% if key == 'brand' %}
+              <div class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+                <p class="label">Предпросмотр</p>
+                <div class="rounded-2xl border p-5 flex flex-wrap items-center gap-3"
+                     style="border-color:var(--line);background:var(--surface-2)">
+                  <span class="btn btn-primary btn-sm">Кнопка действия</span>
+                  <span class="badge badge-brand"><span class="pulse-dot"></span>Бейдж</span>
+                  <span class="chip is-active">Активный фильтр</span>
+                  <span class="flex-1 min-w-[8rem]">
+                    <span class="progress block"><span class="progress__bar block" style="width:68%"></span></span>
+                  </span>
+                </div>
+                <p class="help">Цвета меняются прямо здесь — сохраните, чтобы применить ко всему сайту</p>
+              </div>
+            {% endif %}
+
+            <div class="flex justify-end mt-6 pt-5 border-t" style="border-color:var(--line)">
+              <button class="btn btn-primary">
+                <i data-lucide="check"></i> Сохранить настройки
+              </button>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+
+      {% if not groups %}
+        <div class="card p-12 text-center">
+          <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="settings-2" class="w-7 h-7"></i>
+          </span>
+          <h2 class="font-display font-bold text-lg">Настройки не созданы</h2>
+          <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+            Выполните <code class="font-mono text-xs px-1.5 py-0.5 rounded" style="background:var(--surface-2)">python seed.py</code>,
+            чтобы создать базовый набор настроек.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Возвращаем исходные цвета, если администратор ушёл со страницы, не сохранив предпросмотр */
+  (function () {
+    const original = {
+      brand: getComputedStyle(document.documentElement).getPropertyValue('--brand'),
+      brand2: getComputedStyle(document.documentElement).getPropertyValue('--brand-2'),
+    };
+    let saved = false;
+    const form = document.getElementById('settings-form');
+    if (form) form.addEventListener('submit', () => { saved = true; });
+    window.addEventListener('pagehide', () => {
+      if (saved) return;
+      document.documentElement.style.setProperty('--brand', original.brand);
+      document.documentElement.style.setProperty('--brand-2', original.brand2);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends 'layouts/admin_base.html' %}
+{% block title %}Дашборд{% endblock %}
+{% block heading %}Обзор платформы{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Что происходит на платформе прямо сейчас</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.service_edit') }}" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новый сервис</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+{# ══════════════════ КЛЮЧЕВЫЕ МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('layout-grid', counts.services, 'сервисов', counts.published ~ ' опубликовано', '#EB5A40', url_for('admin.services')),
+    ('graduation-cap', counts.courses, 'курсов', counts.lessons ~ ' уроков', '#F59E0B', url_for('admin.courses')),
+    ('users', counts.users, 'пользователей', counts.students ~ ' студентов', '#0EA5E9', url_for('admin.users')),
+    ('award', counts.certificates, 'сертификатов', 'выдано всего', '#10B981', url_for('admin.analytics')),
+  ] %}
+  {% for icon, value, label, hint, color, link in metrics %}
+    <a href="{{ link }}" class="card card-hover stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none"><span data-count="{{ value }}">0</span></p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </a>
+  {% endfor %}
+</div>
+
+{% if counts.feedback_new %}
+  <a href="{{ url_for('admin.feedback', status='new') }}"
+     class="card card-hover flex items-center gap-4 p-4 mb-6"
+     style="border-left:3px solid var(--brand)">
+    <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="inbox" class="w-5 h-5"></i>
+    </span>
+    <span class="flex-1 min-w-0">
+      <span class="block text-sm font-bold">
+        {{ counts.feedback_new }} {{ counts.feedback_new | plural('новое обращение', 'новых обращения', 'новых обращений') }}
+      </span>
+      <span class="block text-xs ink-muted">Студенты ждут ответа — загляните во входящие</span>
+    </span>
+    <i data-lucide="arrow-right" class="w-4 h-4 flex-none" style="color:var(--brand)"></i>
+  </a>
+{% endif %}
+
+{# ══════════════════ ГРАФИКИ ══════════════════ #}
+<div class="grid lg:grid-cols-3 gap-6 mb-6">
+  <div class="lg:col-span-2 card p-6">
+    <div class="flex items-start justify-between gap-4 mb-5">
+      <div>
+        <h2 class="font-display font-bold text-base">Активность за 30 дней</h2>
+        <p class="text-xs ink-muted mt-0.5">Просмотры страниц сервисов и переходы на внешние сайты</p>
+      </div>
+      <a href="{{ url_for('admin.analytics') }}" class="btn btn-ghost btn-sm flex-none">
+        Подробнее <i data-lucide="arrow-right"></i>
+      </a>
+    </div>
+    <div class="h-64">
+      <canvas id="chart-activity" data-chart='{{ chart_data | tojson_safe }}'></canvas>
+    </div>
+  </div>
+
+  <div class="card p-6">
+    <h2 class="font-display font-bold text-base mb-1">Сервисы по категориям</h2>
+    <p class="text-xs ink-muted mb-4">Как распределён каталог</p>
+    <div class="h-64">
+      <canvas id="chart-categories" data-chart='{{ cat_data | tojson_safe }}'></canvas>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════ ТОП СЕРВИСОВ + ОБРАЩЕНИЯ ══════════════════ #}
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="font-display font-bold text-base">Популярные сервисы</h2>
+      <a href="{{ url_for('admin.analytics') }}" class="text-xs font-bold" style="color:var(--brand)">Вся аналитика →</a>
+    </div>
+
+    {% if top_services %}
+      {% set max_clicks = (top_services | map(attribute='clicks') | select('number') | list | max) or 1 %}
+      <div class="space-y-3">
+        {% for service in top_services %}
+          <a href="{{ url_for('admin.service_edit', service_id=service.id) }}"
+             class="flex items-center gap-3 group">
+            <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                  style="background:{{ service.color }}1a;color:{{ service.color }}">
+              <i data-lucide="{{ service.icon }}" class="w-4 h-4"></i>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-3">
+                <span class="text-sm font-semibold truncate transition-colors group-hover:text-[var(--brand)]">
+                  {{ service.tr('name') }}
+                </span>
+                <span class="text-xs ink-muted flex-none tabular-nums">
+                  {{ service.clicks or 0 }} / {{ service.views or 0 }}
+                </span>
+              </span>
+              <span class="block progress mt-1.5 !h-1.5">
+                <span class="progress__bar block" style="width:{{ ((service.clicks or 0) * 100 / max_clicks) | round | int }}%"></span>
+              </span>
+            </span>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="text-[11px] ink-muted mt-4 pt-3 border-t" style="border-color:var(--line)">
+        Формат: переходы / просмотры
+      </p>
+    {% else %}
+      <div class="py-10 text-center">
+        <i data-lucide="chart-no-axes-column" class="w-8 h-8 mx-auto mb-2" style="color:var(--ink-4)"></i>
+        <p class="text-sm ink-muted">Пока нет данных о переходах</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="font-display font-bold text-base">Последние обращения</h2>
+      <a href="{{ url_for('admin.feedback') }}" class="text-xs font-bold" style="color:var(--brand)">Все →</a>
+    </div>
+
+    {% if recent_feedback %}
+      <div class="space-y-3">
+        {% for item in recent_feedback %}
+          <div class="p-3.5 rounded-xl" style="background:var(--surface-2)">
+            <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span class="text-sm font-bold truncate">{{ item.name or 'Аноним' }}</span>
+              <span class="badge badge-{{ 'rose' if item.status == 'new' else 'amber' if item.status == 'in_progress' else 'emerald' }}">
+                {{ item.status_label }}
+              </span>
+              <span class="text-[11px] ink-muted ml-auto flex-none">{{ item.created_at | date_ru }}</span>
+            </div>
+            <p class="text-xs ink-muted line-clamp-2">{{ item.message }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-10 text-center">
+        <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2" style="color:var(--ink-4)"></i>
+        <p class="text-sm ink-muted">Обращений пока нет</p>
+        <p class="text-xs mt-1" style="color:var(--ink-4)">Это хорошо — значит, всё понятно</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ══════════════════ ПОЛЬЗОВАТЕЛИ + ЖУРНАЛ ══════════════════ #}
+<div class="grid lg:grid-cols-2 gap-6">
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="font-display font-bold text-base">Новые пользователи</h2>
+      <a href="{{ url_for('admin.users') }}" class="text-xs font-bold" style="color:var(--brand)">Все →</a>
+    </div>
+
+    {% if recent_users %}
+      <div class="space-y-2.5">
+        {% for user in recent_users %}
+          <a href="{{ url_for('admin.user_edit', user_id=user.id) }}"
+             class="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--brand-50)] group">
+            {% if user.avatar %}
+              <img src="{{ url_for('static', filename=user.avatar) }}" alt="" class="w-9 h-9 rounded-full object-cover flex-none">
+            {% else %}
+              <span class="w-9 h-9 rounded-full grid place-items-center text-[11px] font-bold text-white flex-none"
+                    style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">{{ user.initials }}</span>
+            {% endif %}
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold truncate transition-colors group-hover:text-[var(--brand)]">
+                {{ user.full_name or user.email }}
+              </span>
+              <span class="block text-[11px] ink-muted truncate">
+                {{ user.email }}{% if user.group_name %} · {{ user.group_name }}{% endif %}
+              </span>
+            </span>
+            <span class="badge badge-{{ 'rose' if user.role == 'admin' else 'amber' if user.role == 'editor' else 'sky' }} flex-none">
+              {{ 'Админ' if user.role == 'admin' else 'Редактор' if user.role == 'editor' else 'Студент' }}
+            </span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-10 text-center">
+        <i data-lucide="users" class="w-8 h-8 mx-auto mb-2" style="color:var(--ink-4)"></i>
+        <p class="text-sm ink-muted">Пользователей пока нет</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="font-display font-bold text-base">Последние действия</h2>
+      <a href="{{ url_for('admin.audit_log') }}" class="text-xs font-bold" style="color:var(--brand)">Журнал →</a>
+    </div>
+
+    {% if recent_log %}
+      {% set action_meta = {
+        'create': ('plus', '#10B981', 'создал'),
+        'update': ('pencil', '#EB5A40', 'изменил'),
+        'delete': ('trash-2', '#E11D48', 'удалил'),
+        'login':  ('log-in', '#78716C', 'вошёл в систему'),
+      } %}
+      {% set entity_names = {
+        'service': 'сервис', 'course': 'курс', 'news': 'новость',
+        'user': 'пользователя', 'settings': 'настройки',
+      } %}
+      <div class="space-y-2.5">
+        {% for entry in recent_log %}
+          {% set meta = action_meta.get(entry.action, ('activity', '#78716C', entry.action)) %}
+          <div class="flex items-start gap-3">
+            <span class="grid place-items-center w-7 h-7 rounded-lg flex-none mt-0.5"
+                  style="background:{{ meta[1] }}1a;color:{{ meta[1] }}">
+              <i data-lucide="{{ meta[0] }}" class="w-3.5 h-3.5"></i>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-xs leading-relaxed" style="color:var(--ink-2)">
+                <strong class="font-semibold">{{ entry.user.full_name if entry.user else 'Система' }}</strong>
+                {{ meta[2] }}
+                {% if entry.action != 'login' %}{{ entity_names.get(entry.entity, entry.entity) }}{% endif %}
+                {% if entry.summary %}<span class="ink-muted">— {{ entry.summary | truncate(48, true, '…') }}</span>{% endif %}
+              </span>
+              <span class="block text-[10px] mt-0.5" style="color:var(--ink-4)">
+                {{ entry.created_at.strftime('%d.%m.%Y, %H:%M') }}
+              </span>
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-10 text-center">
+        <i data-lucide="scroll-text" class="w-8 h-8 mx-auto mb-2" style="color:var(--ink-4)"></i>
+        <p class="text-sm ink-muted">Действий пока не было</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ══════════════════ БЫСТРЫЕ ДЕЙСТВИЯ ══════════════════ #}
+<div class="card p-6 mt-6">
+  <h2 class="font-display font-bold text-base mb-4">Быстрые действия</h2>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    {% set quick = [
+      ('plus-circle', 'Добавить сервис', url_for('admin.service_edit')),
+      ('newspaper', 'Написать новость', url_for('admin.news_edit')),
+      ('palette', 'Настроить бренд', url_for('admin.settings')),
+      ('house', 'Блоки главной', url_for('admin.home_sections')),
+    ] %}
+    {% for icon, label, link in quick %}
+      <a href="{{ link }}" class="flex items-center gap-3 p-4 rounded-xl border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft group"
+         style="border-color:var(--line)">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none transition-transform duration-300 group-hover:scale-110"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="{{ icon }}" class="w-4 h-4"></i>
+        </span>
+        <span class="text-sm font-semibold">{{ label }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,405 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{% if q %}{{ q }} — поиск{% else %}Поиск{% endif %} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Поиск по сервисам, новостям и частым вопросам Caspian College Hub — найдите нужный сервис колледжа или ответ за пару секунд.{% endblock %}
+
+{% block content %}
+
+{% set popular = ['журнал', 'справка', 'практика', 'библиотека', 'общежитие'] %}
+{% set popular_icons = {
+  'журнал': 'notebook-pen',
+  'справка': 'file-badge',
+  'практика': 'briefcase',
+  'библиотека': 'library',
+  'общежитие': 'building-2'
+} %}
+{% set kind_icons = {'news': 'newspaper', 'update': 'refresh-cw', 'announcement': 'megaphone'} %}
+{% set has_query = q and q | length >= 2 %}
+{% set services_count = services | length %}
+{% set news_count = news | length %}
+{% set faqs_count = faqs | length %}
+
+{# ══════════════════════ ШАПКА И ПОЛЕ ПОИСКА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-12 lg:pb-14">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('action.search') }}</span>
+    </nav>
+
+    <div class="max-w-3xl">
+      <span class="badge badge-brand animate-fade-up">
+        <i data-lucide="search" class="w-3.5 h-3.5"></i>
+        {{ t('action.search') }} по платформе
+      </span>
+
+      <h1 class="font-display text-[2.2rem] sm:text-5xl font-extrabold leading-[1.06] mt-6 animate-fade-up" style="animation-delay:.08s">
+        {% if has_query %}
+          Результаты <span class="text-gradient">поиска</span>
+        {% else %}
+          Что вам <span class="text-gradient">найти</span>?
+        {% endif %}
+      </h1>
+
+      <p class="mt-5 text-lg ink-muted leading-relaxed animate-fade-up" style="animation-delay:.16s">
+        Ищем сразу по сервисам колледжа, новостям и частым вопросам. Достаточно одного слова —
+        например «справка» или «практика».
+      </p>
+
+      {# Крупное поле поиска #}
+      <form action="{{ url_for('public.search') }}" method="get" role="search"
+            class="relative mt-8 max-w-2xl animate-fade-up" style="animation-delay:.24s">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="search-q" class="sr-only">Поисковый запрос</label>
+        <i data-lucide="search" class="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-4)"></i>
+        <input id="search-q" name="q" type="search" value="{{ q }}" autofocus
+               autocomplete="off" inputmode="search" minlength="2"
+               placeholder="Например: электронный журнал, справка об обучении"
+               class="field !pl-14 !pr-32 sm:!pr-36 !py-4 !rounded-full !text-base shadow-card">
+        <button type="submit" class="btn btn-primary absolute right-2 top-1/2 -translate-y-1/2 !py-2.5">
+          <i data-lucide="search"></i>
+          <span class="hidden sm:inline">{{ t('action.search') }}</span>
+        </button>
+      </form>
+
+      {# Строка результата #}
+      {% if has_query %}
+        <p class="mt-5 text-sm animate-fade-up" style="animation-delay:.3s;color:var(--ink-2)" aria-live="polite">
+          {% if total %}
+            <i data-lucide="check-circle-2" class="w-4 h-4 inline-block align-[-3px] mr-1" style="color:var(--brand)"></i>
+            Найдено <span class="font-extrabold" style="color:var(--ink)">{{ total }}</span>
+            {{ total | plural('результат', 'результата', 'результатов') }}
+            по запросу «<span class="font-semibold" style="color:var(--ink)">{{ q }}</span>»
+          {% else %}
+            <i data-lucide="search-x" class="w-4 h-4 inline-block align-[-3px] mr-1" style="color:var(--ink-4)"></i>
+            Ничего не нашлось по запросу «<span class="font-semibold" style="color:var(--ink)">{{ q }}</span>»
+          {% endif %}
+        </p>
+
+        {% if total %}
+          <div class="flex flex-wrap items-center gap-2 mt-5 animate-fade-up" style="animation-delay:.36s"
+               role="group" aria-label="Переход к разделам результатов">
+            {% if services_count %}
+              <a href="#results-services" class="chip !py-1.5 !text-xs">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                Сервисы
+                <span class="font-extrabold ml-0.5">{{ services_count }}</span>
+              </a>
+            {% endif %}
+            {% if news_count %}
+              <a href="#results-news" class="chip !py-1.5 !text-xs">
+                <i data-lucide="newspaper" class="w-3.5 h-3.5"></i>
+                Новости
+                <span class="font-extrabold ml-0.5">{{ news_count }}</span>
+              </a>
+            {% endif %}
+            {% if faqs_count %}
+              <a href="#results-faqs" class="chip !py-1.5 !text-xs">
+                <i data-lucide="circle-help" class="w-3.5 h-3.5"></i>
+                Вопросы
+                <span class="font-extrabold ml-0.5">{{ faqs_count }}</span>
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ СОСТОЯНИЕ: ЗАПРОС СЛИШКОМ КОРОТКИЙ ══════════════════════ #}
+{% if not has_query %}
+
+<section class="pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="card p-8 sm:p-12 text-center max-w-3xl mx-auto reveal">
+      <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="search" class="w-8 h-8"></i>
+      </span>
+
+      <h2 class="font-display text-2xl sm:text-3xl font-extrabold mt-6">Введите запрос</h2>
+      <p class="text-sm ink-muted mt-3 max-w-lg mx-auto leading-relaxed">
+        {% if q %}
+          Слишком короткий запрос — нужно хотя бы два символа. Допишите пару букв
+          или выберите одну из популярных тем ниже.
+        {% else %}
+          Напишите, что вы ищете, в поле выше — или начните с популярной темы.
+        {% endif %}
+      </p>
+
+      <p class="text-[11px] font-extrabold uppercase tracking-wider mt-8 mb-4" style="color:var(--ink-4)">
+        Популярные запросы
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        {% for item in popular %}
+          <a href="{{ url_for('public.search', q=item) }}" class="chip" data-reveal-delay="{{ loop.index0 * 50 }}">
+            <i data-lucide="{{ popular_icons.get(item, 'search') }}" class="w-3.5 h-3.5" style="color:var(--brand)"></i>
+            {{ item }}
+          </a>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-9 pt-8 border-t" style="border-color:var(--line)">
+        <a href="{{ url_for('public.services') }}" class="btn btn-primary">
+          <i data-lucide="layout-grid"></i>
+          {{ t('action.all_services') }}
+        </a>
+        <a href="{{ url_for('public.faq') }}" class="btn btn-ghost">
+          <i data-lucide="circle-help"></i>
+          {{ t('svc.faq') }}
+        </a>
+        <a href="{{ url_for('public.news') }}" class="btn btn-ghost">
+          <i data-lucide="newspaper"></i>
+          {{ t('nav.news') }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ СОСТОЯНИЕ: НИЧЕГО НЕ НАЙДЕНО ══════════════════════ #}
+{% elif total == 0 %}
+
+<section class="pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="card p-8 sm:p-12 max-w-3xl mx-auto reveal">
+      <div class="text-center">
+        <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto"
+              style="background:var(--surface-2);color:var(--ink-4)">
+          <i data-lucide="search-x" class="w-8 h-8"></i>
+        </span>
+        <h2 class="font-display text-2xl sm:text-3xl font-extrabold mt-6">Ничего не нашлось</h2>
+        <p class="text-sm ink-muted mt-3 max-w-lg mx-auto leading-relaxed">
+          По запросу «<span class="font-semibold" style="color:var(--ink)">{{ q }}</span>»
+          совпадений нет. Это поправимо — попробуйте один из советов ниже.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4 mt-9">
+        {% set tips = [
+          ('spell-check', 'Проверьте опечатки', 'Одна лишняя буква — и совпадений уже нет.'),
+          ('scissors', 'Сократите запрос', 'Оставьте одно ключевое слово: «справка» вместо «как получить справку».'),
+          ('replace', 'Попробуйте синоним', 'Например «оценки» вместо «журнал» или «диплом» вместо «документ».')
+        ] %}
+        {% for icon, tip_title, tip_text in tips %}
+          <div class="p-5 rounded-2xl border" style="border-color:var(--line);background:var(--surface-2)">
+            <span class="grid place-items-center w-10 h-10 rounded-xl"
+                  style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+            </span>
+            <p class="font-display font-bold text-sm mt-4">{{ tip_title }}</p>
+            <p class="text-xs ink-muted mt-1.5 leading-relaxed">{{ tip_text }}</p>
+          </div>
+        {% endfor %}
+      </div>
+
+      <p class="text-[11px] font-extrabold uppercase tracking-wider mt-9 mb-4 text-center" style="color:var(--ink-4)">
+        Возможно, вы искали это
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        {% for item in popular %}
+          <a href="{{ url_for('public.search', q=item) }}" class="chip">
+            <i data-lucide="{{ popular_icons.get(item, 'search') }}" class="w-3.5 h-3.5" style="color:var(--brand)"></i>
+            {{ item }}
+          </a>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-9 pt-8 border-t" style="border-color:var(--line)">
+        <a href="{{ url_for('public.services') }}" class="btn btn-primary">
+          <i data-lucide="layout-grid"></i>
+          Открыть весь каталог
+        </a>
+        <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+          <i data-lucide="message-circle"></i>
+          Спросить у поддержки
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ РЕЗУЛЬТАТЫ ══════════════════════ #}
+{% else %}
+
+<section class="py-14 lg:py-16" style="background:var(--bg-soft)">
+  <div class="container-hub space-y-16">
+
+    {# ── Сервисы ── #}
+    {% if services_count %}
+      <div id="results-services" class="scroll-mt-28">
+        <div class="flex flex-wrap items-center gap-3 mb-7">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+          </span>
+          <h2 class="font-display text-2xl font-extrabold leading-tight">Сервисы</h2>
+          <span class="badge badge-slate">
+            {{ services_count }} {{ services_count | plural('сервис', 'сервиса', 'сервисов') }}
+          </span>
+          <a href="{{ url_for('public.services', q=q) }}" class="btn btn-ghost btn-sm sm:ml-auto">
+            <i data-lucide="sliders-horizontal"></i>
+            Искать в каталоге
+          </a>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% for service in services %}
+            {% include 'partials/service_card.html' %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {# ── Новости ── #}
+    {% if news_count %}
+      <div id="results-news" class="scroll-mt-28">
+        <div class="flex flex-wrap items-center gap-3 mb-7">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+            <i data-lucide="newspaper" class="w-5 h-5"></i>
+          </span>
+          <h2 class="font-display text-2xl font-extrabold leading-tight">Новости</h2>
+          <span class="badge badge-slate">
+            {{ news_count }} {{ news_count | plural('материал', 'материала', 'материалов') }}
+          </span>
+          <a href="{{ url_for('public.news') }}" class="btn btn-ghost btn-sm sm:ml-auto">
+            <i data-lucide="list"></i>
+            Вся лента
+          </a>
+        </div>
+
+        <div class="card divide-y overflow-hidden" style="border-color:var(--line)">
+          {% for item in news %}
+            <a href="{{ url_for('public.news_detail', slug=item.slug) }}"
+               class="flex items-start gap-4 p-5 sm:p-6 transition-colors hover:bg-[var(--brand-50)] group"
+               style="border-color:var(--line)">
+              <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                    style="background:var(--surface-2);color:var(--brand)">
+                <i data-lucide="{{ kind_icons.get(item.kind, 'newspaper') }}" class="w-5 h-5"></i>
+              </span>
+
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <time datetime="{{ item.published_at.strftime('%Y-%m-%d') if item.published_at }}"
+                        class="text-xs ink-muted">
+                    {{ item.published_at | date_ru }}
+                  </time>
+                  <span class="badge badge-brand !py-0.5 !text-[10px]">{{ item.kind_label }}</span>
+                  {% if item.is_pinned %}
+                    <span class="badge badge-amber !py-0.5 !text-[10px]">
+                      <i data-lucide="pin" class="w-3 h-3"></i>
+                      Закреплено
+                    </span>
+                  {% endif %}
+                </span>
+
+                <span class="block font-display font-bold text-base leading-snug mt-1.5 transition-colors group-hover:text-[var(--brand)]">
+                  {{ item.tr('title') }}
+                </span>
+
+                {% set news_text = item.tr('excerpt') or (item.tr('body') | excerpt(160)) %}
+                {% if news_text %}
+                  <span class="block text-sm ink-muted leading-relaxed mt-1.5 line-clamp-2">{{ news_text }}</span>
+                {% endif %}
+              </span>
+
+              <i data-lucide="arrow-up-right" class="w-4 h-4 flex-none mt-1 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                 style="color:var(--ink-4)"></i>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {# ── Вопросы ── #}
+    {% if faqs_count %}
+      <div id="results-faqs" class="scroll-mt-28">
+        <div class="flex flex-wrap items-center gap-3 mb-7">
+          <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+            <i data-lucide="circle-help" class="w-5 h-5"></i>
+          </span>
+          <h2 class="font-display text-2xl font-extrabold leading-tight">Вопросы</h2>
+          <span class="badge badge-slate">
+            {{ faqs_count }} {{ faqs_count | plural('вопрос', 'вопроса', 'вопросов') }}
+          </span>
+          <a href="{{ url_for('public.faq') }}" class="btn btn-ghost btn-sm sm:ml-auto">
+            <i data-lucide="book-open"></i>
+            Все вопросы
+          </a>
+        </div>
+
+        <div class="card px-6 sm:px-8 py-2">
+          <div data-acc="single">
+            {% for item in faqs %}
+              <div class="acc{{ ' is-open' if loop.first }}">
+                <button class="acc__btn" type="button">
+                  <span>{{ item.tr('question') }}</span>
+                  <span class="acc__icon"><i data-lucide="plus" class="w-4 h-4"></i></span>
+                </button>
+                <div class="acc__panel">
+                  <div class="prose-hub pb-6 !text-[15px]">
+                    {% if item.tr('answer') %}
+                      {{ item.tr('answer') | markdown }}
+                    {% else %}
+                      <p class="ink-muted">Ответ скоро появится. Если вопрос срочный — напишите в поддержку.</p>
+                    {% endif %}
+                  </div>
+                  {% if item.category %}
+                    <p class="text-xs ink-muted pb-6 -mt-3">
+                      <i data-lucide="folder" class="w-3.5 h-3.5 inline-block align-[-3px] mr-1"></i>
+                      Раздел: {{ item.category }}
+                    </p>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</section>
+
+{# ── Не то, что искали? ── #}
+<section class="py-14 lg:py-16">
+  <div class="container-hub">
+    <div class="card p-8 sm:p-10 reveal" style="background:var(--surface-2)">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-6">
+        <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+              style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+          <i data-lucide="life-buoy" class="w-6 h-6"></i>
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 class="font-display text-xl font-extrabold leading-tight">Не то, что вы искали?</h2>
+          <p class="text-sm ink-muted mt-2 leading-relaxed max-w-xl">
+            Опишите задачу своими словами — подскажем нужный сервис или ответим сами.
+            Обычно отвечаем в течение рабочего дня.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3 flex-none">
+          <a href="{{ url_for('public.support') }}" class="btn btn-primary">
+            <i data-lucide="message-circle"></i>
+            Написать нам
+          </a>
+          <a href="{{ url_for('public.services') }}" class="btn btn-ghost">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endif %}
+
+{% endblock %}

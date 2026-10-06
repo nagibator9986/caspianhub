@@ -1,0 +1,495 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ setting('site_name', 'Caspian College Hub') }} — {{ setting('site_tagline', 'единое окно цифровых сервисов колледжа') }}{% endblock %}
+
+{% macro sec(key, default_title, default_subtitle='') %}
+  {% set s = sections.get(key) %}
+  {{ s.tr('title') if s and s.tr('title') else default_title }}
+{% endmacro %}
+
+{% block content %}
+
+{# ══════════════════════ ГЕРОЙ ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-60 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-16 pb-20 lg:pt-24 lg:pb-28">
+    <div class="grid lg:grid-cols-12 gap-14 items-center">
+
+      <div class="lg:col-span-7">
+        <span class="badge badge-brand animate-fade-up">
+          <span class="pulse-dot"></span>
+          {{ sections.get('hero').tr('subtitle') if sections.get('hero') and sections.get('hero').subtitle_ru else setting('hero_badge', 'Экосистема цифровых сервисов колледжа') }}
+        </span>
+
+        <h1 class="font-display text-[2.6rem] sm:text-6xl xl:text-[4.25rem] font-extrabold leading-[1.03] mt-6 animate-fade-up" style="animation-delay:.08s">
+          {% set hero_title = (sections.get('hero').tr('title') if sections.get('hero') and sections.get('hero').title_ru else setting('hero_title', 'Все сервисы колледжа — в одном окне')) %}
+          {% set highlight = setting('hero_highlight', 'в одном окне') %}
+          {% if highlight and highlight in hero_title %}
+            {{ hero_title.split(highlight)[0] }}<span class="brush text-gradient">{{ highlight }}</span>{{ hero_title.split(highlight)[1] }}
+          {% else %}
+            {{ hero_title }}
+          {% endif %}
+        </h1>
+
+        <p class="mt-6 text-lg ink-muted leading-relaxed max-w-xl animate-fade-up" style="animation-delay:.16s">
+          {{ setting('hero_subtitle', 'Электронный журнал, библиотека, практика, справки и госуслуги. Каждый сервис — с понятным описанием и коротким курсом «как этим пользоваться».') }}
+        </p>
+
+        {# Поиск #}
+        <form action="{{ url_for('public.search') }}" method="get"
+              class="relative mt-9 max-w-xl animate-fade-up" style="animation-delay:.24s">
+          <i data-lucide="search" class="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-4)"></i>
+          <input name="q" type="search" autocomplete="off"
+                 placeholder="{{ setting('search_placeholder_hero', 'Что вам нужно? Например: журнал, справка, практика') }}"
+                 class="field !pl-14 !pr-36 !py-4 !rounded-full !text-base shadow-card">
+          <button class="btn btn-primary absolute right-2 top-1/2 -translate-y-1/2 !py-2.5">
+            {{ t('action.search') }}
+          </button>
+        </form>
+
+        {# Быстрые подсказки #}
+        <div class="flex flex-wrap gap-2 mt-4 animate-fade-up" style="animation-delay:.3s">
+          <span class="text-xs font-semibold self-center mr-1" style="color:var(--ink-4)">Популярное:</span>
+          {% for svc in featured[:4] %}
+            <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="chip !py-1.5 !text-xs">
+              <i data-lucide="{{ svc.icon }}" class="w-3.5 h-3.5" style="color:{{ svc.color }}"></i>
+              {{ svc.tr('name') | truncate(28, true, '…') }}
+            </a>
+          {% endfor %}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-9 animate-fade-up" style="animation-delay:.36s">
+          <a href="{{ url_for('public.services') }}" class="btn btn-primary btn-lg magnetic">
+            <i data-lucide="layout-grid"></i>
+            {{ setting('hero_cta_primary', 'Открыть каталог сервисов') }}
+          </a>
+          <a href="{{ url_for('public.courses') }}" class="btn btn-ghost btn-lg">
+            <i data-lucide="play-circle"></i>
+            {{ setting('hero_cta_secondary', 'Начать обучение') }}
+          </a>
+        </div>
+      </div>
+
+      {# Визуал: стопка карточек сервисов #}
+      <div class="lg:col-span-5 relative">
+        <div class="relative mx-auto max-w-sm" data-parallax="-0.08">
+          <div class="absolute -inset-6 rounded-[2.5rem] opacity-70 blur-3xl"
+               style="background:radial-gradient(circle at 30% 20%, rgba(235,90,64,.35), transparent 65%)"></div>
+
+          <div class="relative card p-5 shadow-hero" data-tilt>
+            <div class="flex items-center justify-between mb-4">
+              <span class="flex gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full" style="background:#FF5F57"></span>
+                <span class="w-2.5 h-2.5 rounded-full" style="background:#FEBC2E"></span>
+                <span class="w-2.5 h-2.5 rounded-full" style="background:#28C840"></span>
+              </span>
+              <span class="text-[10px] font-bold tracking-wider uppercase" style="color:var(--ink-4)">Caspian College Hub</span>
+            </div>
+
+            <div class="space-y-2.5">
+              {% for svc in featured[:4] %}
+                <a href="{{ url_for('public.service_detail', slug=svc.slug) }}"
+                   class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft"
+                   style="border-color:var(--line);animation:fade-up .7s var(--ease) both;animation-delay:{{ 0.4 + loop.index0 * 0.12 }}s">
+                  <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+                        style="background:{{ svc.color }}1a;color:{{ svc.color }}">
+                    <i data-lucide="{{ svc.icon }}" class="w-5 h-5"></i>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-bold truncate">{{ svc.tr('name') }}</span>
+                    <span class="block text-[11px] ink-muted truncate">{{ svc.tr('tagline') | truncate(40, true, '…') }}</span>
+                  </span>
+                  <i data-lucide="arrow-up-right" class="w-4 h-4 flex-none" style="color:var(--ink-4)"></i>
+                </a>
+              {% endfor %}
+            </div>
+
+            <div class="mt-4 pt-4 border-t flex items-center justify-between" style="border-color:var(--line)">
+              <span class="text-[11px] ink-muted">и ещё {{ stats.services - 4 if stats.services > 4 else 0 }} сервисов</span>
+              <a href="{{ url_for('public.services') }}" class="text-[11px] font-bold" style="color:var(--brand)">Смотреть все →</a>
+            </div>
+          </div>
+
+          {# Плавающие бейджи #}
+          <div class="absolute -left-6 top-1/4 card glass px-3.5 py-2.5 shadow-lift float hidden sm:flex items-center gap-2">
+            <span class="grid place-items-center w-8 h-8 rounded-lg" style="background:var(--brand-50);color:var(--brand)">
+              <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+            </span>
+            <span class="leading-tight">
+              <span class="block text-sm font-extrabold" data-count="{{ stats.lessons }}">0</span>
+              <span class="block text-[10px] ink-muted">уроков</span>
+            </span>
+          </div>
+
+          <div class="absolute -right-4 bottom-10 card glass px-3.5 py-2.5 shadow-lift float-slow hidden sm:flex items-center gap-2">
+            <span class="grid place-items-center w-8 h-8 rounded-lg" style="background:rgba(16,185,129,.12);color:#059669">
+              <i data-lucide="badge-check" class="w-4 h-4"></i>
+            </span>
+            <span class="leading-tight">
+              <span class="block text-sm font-extrabold">100%</span>
+              <span class="block text-[10px] ink-muted">официальные</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ СТАТИСТИКА ══════════════════════ #}
+<section class="relative -mt-6 z-20">
+  <div class="container-hub">
+    <div class="card shadow-lift p-6 sm:p-8 grid grid-cols-2 lg:grid-cols-4 gap-6 reveal">
+      {% set stat_items = [
+        ('layout-grid', stats.services, '', 'сервисов в одном окне'),
+        ('folder-tree', stats.categories, '', 'категорий'),
+        ('graduation-cap', stats.courses, '', 'мини-курсов'),
+        ('book-open', stats.lessons, '', 'пошаговых уроков'),
+      ] %}
+      {% for icon, value, suffix, label in stat_items %}
+        <div class="flex items-center gap-4">
+          <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+                style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+            <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+          </span>
+          <span class="leading-tight min-w-0">
+            <span class="block font-display text-3xl font-extrabold">
+              <span data-count="{{ value }}">0</span>{{ suffix }}
+            </span>
+            <span class="block text-xs ink-muted mt-0.5">{{ label }}</span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ БЕГУЩАЯ СТРОКА ══════════════════════ #}
+<section class="py-12 mt-12 border-y" style="border-color:var(--line);background:var(--bg-soft)">
+  <div class="marquee">
+    <div class="marquee__track">
+      {% for _ in range(2) %}
+        {% for svc in services %}
+          <a href="{{ url_for('public.service_detail', slug=svc.slug) }}"
+             class="flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold transition-colors hover:text-[var(--brand)]"
+             style="color:var(--ink-3)">
+            <i data-lucide="{{ svc.icon }}" class="w-4 h-4" style="color:{{ svc.color }}"></i>
+            {{ svc.tr('name') }}
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ КАТЕГОРИИ ══════════════════════ #}
+<section class="py-20 lg:py-24">
+  <div class="container-hub">
+    {% with eyebrow='Навигация', eyebrow_icon='compass',
+            title=(sections.get('categories').tr('title') if sections.get('categories') and sections.get('categories').title_ru else 'С чего начать'),
+            subtitle=(sections.get('categories').tr('subtitle') if sections.get('categories') and sections.get('categories').subtitle_ru else 'Сервисы сгруппированы по задачам — выберите ту, которая ближе к вашему вопросу.') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for cat in categories %}
+        <a href="{{ url_for('public.category', slug=cat.slug) }}"
+           class="card card-hover svc-card group p-7 flex flex-col reveal"
+           data-reveal-delay="{{ loop.index0 * 70 }}"
+           style="--glow:{{ cat.color }}">
+          <span class="svc-icon mb-5"><i data-lucide="{{ cat.icon }}" class="w-6 h-6"></i></span>
+          <h3 class="font-display font-bold text-xl mb-2 transition-colors group-hover:text-[var(--brand)]">{{ cat.tr('name') }}</h3>
+          <p class="text-sm ink-muted leading-relaxed flex-1">{{ cat.tr('description') }}</p>
+          <div class="flex items-center justify-between mt-6 pt-4 border-t" style="border-color:var(--line)">
+            <span class="text-xs font-bold" style="color:{{ cat.color }}">
+              {{ cat.active_services | length }} {{ cat.active_services | length | plural('сервис', 'сервиса', 'сервисов') }}
+            </span>
+            <i data-lucide="arrow-right" class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" style="color:{{ cat.color }}"></i>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ИЗБРАННЫЕ СЕРВИСЫ ══════════════════════ #}
+<section class="py-20 lg:py-24" style="background:var(--bg-soft)">
+  <div class="container-hub">
+    {% with center=false, eyebrow='Каталог', eyebrow_icon='sparkles',
+            title=(sections.get('services').tr('title') if sections.get('services') and sections.get('services').title_ru else 'Сервисы, которыми пользуются чаще всего'),
+            subtitle=(sections.get('services').tr('subtitle') if sections.get('services') and sections.get('services').subtitle_ru else 'Каждая карточка — это не просто ссылка: внутри описание, ответы на частые вопросы и короткое обучение.'),
+            link=url_for('public.services'), link_text='Все сервисы' %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for service in featured %}
+        <div class="reveal" data-reveal-delay="{{ loop.index0 * 60 }}">
+          {% include 'partials/service_card.html' %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ КАК ЭТО РАБОТАЕТ ══════════════════════ #}
+<section class="py-20 lg:py-24 relative overflow-hidden">
+  <div class="aurora opacity-50"><span></span><span></span><span></span></div>
+  <div class="container-hub relative z-10">
+    {% with eyebrow='Как это работает', eyebrow_icon='route',
+            title=(sections.get('how').tr('title') if sections.get('how') and sections.get('how').title_ru else 'Четыре шага — и вы разобрались'),
+            subtitle=(sections.get('how').tr('subtitle') if sections.get('how') and sections.get('how').subtitle_ru else 'Платформа не заменяет сервисы колледжа — она объясняет, где что лежит и как этим пользоваться.') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {% set steps = [
+        ('search', 'Найдите сервис', 'Поиск по названию или задаче: «справка», «оценки», «практика». Или просто пролистайте категории.'),
+        ('book-open-text', 'Прочитайте карточку', 'Что это за сервис, кому он нужен, что даёт и куда нажимать. Без официоза, по-человечески.'),
+        ('graduation-cap', 'Пройдите мини-курс', 'Несколько коротких уроков с пошаговыми инструкциями и проверочным тестом в конце.'),
+        ('rocket', 'Переходите и работайте', 'Кнопка ведёт прямо в сервис. Прогресс и избранное останутся в вашем кабинете.'),
+      ] %}
+      {% for icon, title, text in steps %}
+        <div class="card p-7 relative reveal group hover:shadow-lift transition-shadow duration-500"
+             data-reveal-delay="{{ loop.index0 * 90 }}">
+          <span class="absolute top-5 right-6 font-display text-5xl font-extrabold select-none opacity-[.07]">{{ loop.index }}</span>
+          <span class="grid place-items-center w-12 h-12 rounded-2xl mb-5 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;box-shadow:var(--sh-brand)">
+            <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+          </span>
+          <h3 class="font-display font-bold text-lg mb-2">{{ title }}</h3>
+          <p class="text-sm ink-muted leading-relaxed">{{ text }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ КУРСЫ ══════════════════════ #}
+{% if courses %}
+<section class="py-20 lg:py-24" style="background:var(--bg-soft)">
+  <div class="container-hub">
+    {% with center=false, eyebrow='Обучение', eyebrow_icon='graduation-cap',
+            title=(sections.get('courses').tr('title') if sections.get('courses') and sections.get('courses').title_ru else 'Мини-курсы по сервисам'),
+            subtitle=(sections.get('courses').tr('subtitle') if sections.get('courses') and sections.get('courses').subtitle_ru else '10–20 минут — и вы уверенно пользуетесь сервисом. В конце тест и сертификат.'),
+            link=url_for('public.courses'), link_text='Все курсы' %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for course in courses %}
+        {% set svc = course.service %}
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+           class="card card-hover svc-card group p-6 flex flex-col reveal"
+           data-reveal-delay="{{ loop.index0 * 60 }}"
+           style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="svc-icon !w-11 !h-11 !rounded-xl">
+              <i data-lucide="{{ svc.icon if svc else 'graduation-cap' }}" class="w-5 h-5"></i>
+            </span>
+            <span class="badge badge-slate">{{ course.level_label }}</span>
+          </div>
+
+          <h3 class="font-display font-bold text-base leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+            {{ course.tr('title') }}
+          </h3>
+          <p class="text-sm ink-muted leading-relaxed flex-1 line-clamp-3">{{ course.tr('summary') }}</p>
+
+          {% if current_user.is_authenticated %}
+            {% set pct = course.progress_for(current_user) %}
+            {% if pct > 0 %}
+              <div class="mt-4">
+                <div class="flex items-center justify-between text-[11px] font-semibold mb-1.5">
+                  <span class="ink-muted">{{ t('learn.progress') }}</span>
+                  <span style="color:var(--brand)">{{ pct }}%</span>
+                </div>
+                <div class="progress"><div class="progress__bar" style="width:{{ pct }}%"></div></div>
+              </div>
+            {% endif %}
+          {% endif %}
+
+          <div class="flex items-center gap-4 mt-5 pt-4 border-t text-xs ink-muted" style="border-color:var(--line)">
+            <span class="inline-flex items-center gap-1.5"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>{{ course.lesson_count }} {{ course.lesson_count | plural('урок','урока','уроков') }}</span>
+            <span class="inline-flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i>{{ course.duration_min }} мин</span>
+            <i data-lucide="arrow-right" class="w-4 h-4 ml-auto transition-transform duration-300 group-hover:translate-x-1" style="color:var(--brand)"></i>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════ ОТЗЫВЫ ══════════════════════ #}
+{% if testimonials %}
+<section class="py-20 lg:py-24">
+  <div class="container-hub">
+    {% with eyebrow='Отзывы', eyebrow_icon='quote',
+            title=(sections.get('testimonials').tr('title') if sections.get('testimonials') and sections.get('testimonials').title_ru else 'Что говорят студенты и преподаватели'),
+            subtitle=(sections.get('testimonials').tr('subtitle') if sections.get('testimonials') and sections.get('testimonials').subtitle_ru else '') %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="relative">
+      <div class="swiper" data-swiper data-per-view="3" data-autoplay="5200">
+        <div class="swiper-wrapper pb-14">
+          {% for item in testimonials %}
+            <div class="swiper-slide h-auto">
+              <figure class="card p-7 h-full flex flex-col">
+                <div class="flex gap-0.5 mb-4">
+                  {% for i in range(item.rating or 5) %}
+                    <i data-lucide="star" class="w-4 h-4" style="color:var(--brand-2);fill:var(--brand-2)"></i>
+                  {% endfor %}
+                </div>
+                <blockquote class="text-[15px] leading-relaxed flex-1" style="color:var(--ink-2)">
+                  «{{ item.tr('text') }}»
+                </blockquote>
+                <figcaption class="flex items-center gap-3 mt-6 pt-5 border-t" style="border-color:var(--line)">
+                  {% if item.avatar %}
+                    <img src="{{ url_for('static', filename=item.avatar) }}" alt="" class="w-11 h-11 rounded-full object-cover">
+                  {% else %}
+                    <span class="w-11 h-11 rounded-full grid place-items-center text-sm font-bold text-white flex-none"
+                          style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">
+                      {{ item.author.split()[0][0] }}{{ item.author.split()[1][0] if item.author.split()|length > 1 else '' }}
+                    </span>
+                  {% endif %}
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate">{{ item.author }}</span>
+                    <span class="block text-xs ink-muted truncate">{{ item.tr('role') }}</span>
+                  </span>
+                </figcaption>
+              </figure>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="swiper-pagination !bottom-0"></div>
+      </div>
+
+      <button data-swiper-prev class="hidden lg:grid absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-11 h-11 place-items-center card shadow-card hover:shadow-lift transition-shadow" aria-label="Назад">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </button>
+      <button data-swiper-next class="hidden lg:grid absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-11 h-11 place-items-center card shadow-card hover:shadow-lift transition-shadow" aria-label="Вперёд">
+        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+      </button>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════ НОВОСТИ ══════════════════════ #}
+{% if news %}
+<section class="py-20 lg:py-24" style="background:var(--bg-soft)">
+  <div class="container-hub">
+    {% with center=false, eyebrow='Лента', eyebrow_icon='newspaper',
+            title=(sections.get('news').tr('title') if sections.get('news') and sections.get('news').title_ru else 'Новости и обновления'),
+            subtitle='', link=url_for('public.news'), link_text='Все новости' %}
+      {% include 'partials/section_head.html' %}
+    {% endwith %}
+
+    <div class="grid md:grid-cols-3 gap-6">
+      {% for item in news %}
+        <a href="{{ url_for('public.news_detail', slug=item.slug) }}"
+           class="card card-hover group overflow-hidden flex flex-col reveal" data-reveal-delay="{{ loop.index0 * 70 }}">
+          <div class="relative aspect-[16/10] overflow-hidden" style="background:var(--brand-50)">
+            {% if item.cover %}
+              <img src="{{ url_for('static', filename=item.cover) }}" alt="" loading="lazy"
+                   class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+            {% else %}
+              <span class="absolute inset-0 grid place-items-center" style="color:var(--brand-200)">
+                <i data-lucide="newspaper" class="w-12 h-12"></i>
+              </span>
+            {% endif %}
+            <span class="badge badge-brand absolute top-3 left-3 glass">{{ item.kind_label }}</span>
+          </div>
+          <div class="p-6 flex flex-col flex-1">
+            <time class="text-xs ink-muted">{{ item.published_at | date_ru }}</time>
+            <h3 class="font-display font-bold text-base leading-snug mt-2 mb-2 transition-colors group-hover:text-[var(--brand)]">
+              {{ item.tr('title') }}
+            </h3>
+            <p class="text-sm ink-muted leading-relaxed line-clamp-3 flex-1">{{ item.tr('excerpt') }}</p>
+            <span class="inline-flex items-center gap-1.5 text-xs font-bold mt-4" style="color:var(--brand)">
+              Читать <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"></i>
+            </span>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════ FAQ ══════════════════════ #}
+{% if faqs %}
+<section class="py-20 lg:py-24">
+  <div class="container-hub">
+    <div class="grid lg:grid-cols-12 gap-12">
+      <div class="lg:col-span-4">
+        <span class="badge badge-brand mb-4"><i data-lucide="circle-help" class="w-3.5 h-3.5"></i>Вопросы</span>
+        <h2 class="font-display text-3xl sm:text-4xl font-extrabold leading-tight">
+          {{ sections.get('faq').tr('title') if sections.get('faq') and sections.get('faq').title_ru else 'Коротко о главном' }}
+        </h2>
+        <p class="mt-4 text-base ink-muted leading-relaxed">
+          {{ sections.get('faq').tr('subtitle') if sections.get('faq') and sections.get('faq').subtitle_ru else 'Не нашли ответ? Напишите нам — отвечаем в рабочие часы.' }}
+        </p>
+        <div class="flex flex-wrap gap-3 mt-7">
+          <a href="{{ url_for('public.faq') }}" class="btn btn-ghost btn-sm">Все вопросы</a>
+          <a href="{{ url_for('public.support') }}" class="btn btn-primary btn-sm">Задать свой</a>
+        </div>
+      </div>
+
+      <div class="lg:col-span-8" data-acc="single">
+        {% for item in faqs %}
+          <div class="acc {% if loop.first %}is-open{% endif %}">
+            <button class="acc__btn" type="button">
+              <span>{{ item.tr('question') }}</span>
+              <span class="acc__icon"><i data-lucide="plus" class="w-4 h-4"></i></span>
+            </button>
+            <div class="acc__panel">
+              <div class="prose-hub pb-6 !text-[15px]">{{ item.tr('answer') | markdown }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════ ПРИЗЫВ ══════════════════════ #}
+<section class="pb-24">
+  <div class="container-hub">
+    <div class="relative overflow-hidden rounded-[var(--r-2xl)] grain shadow-hero reveal"
+         style="background:linear-gradient(135deg,var(--brand) 0%,var(--brand-600) 45%,var(--brand-2) 100%)">
+      <div class="absolute inset-0 opacity-25"
+           style="background:radial-gradient(circle at 15% 20%,rgba(255,255,255,.55),transparent 42%),radial-gradient(circle at 85% 80%,rgba(255,255,255,.35),transparent 45%)"></div>
+
+      <div class="relative z-10 px-8 py-16 sm:px-14 sm:py-20 text-center text-white">
+        <h2 class="font-display text-3xl sm:text-5xl font-extrabold leading-tight max-w-3xl mx-auto">
+          {{ sections.get('cta').tr('title') if sections.get('cta') and sections.get('cta').title_ru else 'Хватит искать нужную ссылку в чате группы' }}
+        </h2>
+        <p class="mt-5 text-base sm:text-lg opacity-90 max-w-xl mx-auto leading-relaxed">
+          {{ sections.get('cta').tr('subtitle') if sections.get('cta') and sections.get('cta').subtitle_ru else 'Создайте аккаунт — сохраняйте избранные сервисы, проходите мини-курсы и получайте сертификаты.' }}
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-9">
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('account.dashboard') }}" class="btn btn-lg magnetic" style="background:#fff;color:var(--brand-700)">
+              <i data-lucide="layout-dashboard"></i> Мой кабинет
+            </a>
+          {% else %}
+            <a href="{{ url_for('auth.register') }}" class="btn btn-lg magnetic" style="background:#fff;color:var(--brand-700)">
+              <i data-lucide="user-plus"></i> Создать аккаунт
+            </a>
+          {% endif %}
+          <a href="{{ url_for('public.services') }}" class="btn btn-lg"
+             style="background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.3);backdrop-filter:blur(8px)">
+            <i data-lucide="layout-grid"></i> Смотреть сервисы
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

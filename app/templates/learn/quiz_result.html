@@ -1,0 +1,351 @@
+{% extends 'layouts/base.html' %}
+
+{% set svc = course.service %}
+{% set passed = attempt.passed %}
+{% set pass_score = quiz.pass_score or 70 %}
+{% set total = attempt.total_count or 0 %}
+{% set correct = attempt.correct_count or 0 %}
+{% set wrong = total - correct %}
+
+{% block title %}Результат теста — {{ course.tr('title') }}{% endblock %}
+{% block description %}Ваш результат по тесту курса «{{ course.tr('title') }}» — {{ attempt.score }}% ({{ correct }} {{ t('common.of') }} {{ total }}).{% endblock %}
+
+{% block content %}
+<div style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+<div class="container-hub py-10">
+
+  {# ══════════════════════ ХЛЕБНЫЕ КРОШКИ ══════════════════════ #}
+  <nav class="flex items-center gap-2 text-xs mb-7 flex-wrap" aria-label="Хлебные крошки">
+    <a href="{{ url_for('public.services') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Сервисы</a>
+    <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+    {% if svc %}
+      <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ svc.tr('name') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+    {% endif %}
+    <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ course.tr('title') }}</a>
+    <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+    <span class="font-semibold">Результат</span>
+  </nav>
+
+  {# ══════════════════════ ГЕРОЙ С РЕЗУЛЬТАТОМ ══════════════════════ #}
+  <section class="relative overflow-hidden rounded-3xl shadow-lift grain animate-fade-up"
+           {% if passed %}
+             style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff"
+           {% else %}
+             style="background:var(--surface);border:1px solid var(--line)"
+           {% endif %}>
+    {% if not passed %}
+      <div class="absolute inset-0 pointer-events-none"
+           style="background:radial-gradient(760px circle at 12% -20%, var(--brand-50), transparent 62%)"></div>
+    {% endif %}
+
+    <div class="relative z-10 p-7 sm:p-10 lg:p-12">
+      <div class="flex flex-col lg:flex-row lg:items-center gap-10">
+
+        {# ── Текстовая часть ── #}
+        <div class="flex-1 min-w-0 text-center lg:text-left">
+          <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-5"
+                {% if passed %}
+                  style="background:rgba(255,255,255,.18);color:#fff"
+                {% else %}
+                  style="background:var(--surface-2);color:var(--ink-3)"
+                {% endif %}>
+            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>
+            {{ quiz.tr('title') or t('learn.quiz') }}
+          </span>
+
+          <div class="flex items-center justify-center lg:justify-start gap-4 mb-4">
+            <span class="grid place-items-center w-14 h-14 rounded-2xl flex-none"
+                  {% if passed %}
+                    style="background:rgba(255,255,255,.2);color:#fff"
+                  {% else %}
+                    style="background:var(--brand-50);color:var(--brand)"
+                  {% endif %}>
+              <i data-lucide="{{ 'party-popper' if passed else 'refresh-cw' }}" class="w-7 h-7"></i>
+            </span>
+            <h1 class="font-display text-3xl sm:text-4xl xl:text-[2.7rem] font-extrabold leading-[1.1]">
+              {{ 'Тест пройден!' if passed else 'Почти получилось' }}
+            </h1>
+          </div>
+
+          <p class="text-base leading-relaxed max-w-xl mx-auto lg:mx-0"
+             {% if passed %}style="color:rgba(255,255,255,.88)"{% else %}style="color:var(--ink-2)"{% endif %}>
+            {% if passed %}
+              Поздравляем, вы отлично разобрались с сервисом{% if svc %} «{{ svc.tr('name') }}»{% endif %}.
+              Ниже — разбор ваших ответов, чтобы закрепить результат.
+            {% else %}
+              До проходного балла не хватило совсем немного. Посмотрите разбор ниже, вернитесь к нужным урокам —
+              и пробуйте снова, количество попыток не ограничено.
+            {% endif %}
+          </p>
+
+          {# ── Плитки со сводкой ── #}
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-8 max-w-xl mx-auto lg:mx-0">
+            <div class="rounded-2xl px-4 py-3.5 text-left"
+                 {% if passed %}style="background:rgba(255,255,255,.14)"{% else %}style="background:var(--surface-2)"{% endif %}>
+              <p class="text-[11px] font-bold uppercase tracking-wider mb-1"
+                 {% if passed %}style="color:rgba(255,255,255,.78)"{% else %}style="color:var(--ink-4)"{% endif %}>Верных ответов</p>
+              <p class="font-display text-xl font-extrabold">{{ correct }} <span class="text-sm font-bold opacity-70">{{ t('common.of') }} {{ total }}</span></p>
+            </div>
+
+            <div class="rounded-2xl px-4 py-3.5 text-left"
+                 {% if passed %}style="background:rgba(255,255,255,.14)"{% else %}style="background:var(--surface-2)"{% endif %}>
+              <p class="text-[11px] font-bold uppercase tracking-wider mb-1"
+                 {% if passed %}style="color:rgba(255,255,255,.78)"{% else %}style="color:var(--ink-4)"{% endif %}>Ошибок</p>
+              <p class="font-display text-xl font-extrabold">{{ wrong }}</p>
+            </div>
+
+            <div class="rounded-2xl px-4 py-3.5 text-left col-span-2 sm:col-span-1"
+                 {% if passed %}style="background:rgba(255,255,255,.14)"{% else %}style="background:var(--surface-2)"{% endif %}>
+              <p class="text-[11px] font-bold uppercase tracking-wider mb-1"
+                 {% if passed %}style="color:rgba(255,255,255,.78)"{% else %}style="color:var(--ink-4)"{% endif %}>Проходной балл</p>
+              <p class="font-display text-xl font-extrabold">{{ pass_score }}%</p>
+            </div>
+          </div>
+
+          {% if attempt.created_at %}
+            <p class="text-xs mt-5"
+               {% if passed %}style="color:rgba(255,255,255,.72)"{% else %}style="color:var(--ink-4)"{% endif %}>
+              <i data-lucide="calendar-clock" class="w-3.5 h-3.5 inline-block align-[-2px] mr-1"></i>
+              Попытка от {{ attempt.created_at | date_ru }}
+            </p>
+          {% endif %}
+        </div>
+
+        {# ── Кольцевой прогресс ── #}
+        <div class="flex-none mx-auto lg:mx-0">
+          <div class="relative w-44 h-44 sm:w-52 sm:h-52">
+            <svg class="ring w-full h-full" viewBox="0 0 120 120" data-ring="{{ attempt.score }}"
+                 role="img" aria-label="Результат теста: {{ attempt.score }} процентов">
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="11"
+                      stroke="{{ 'rgba(255,255,255,.26)' if passed else 'var(--line-strong)' }}"></circle>
+              <circle class="ring__value" cx="60" cy="60" r="52" fill="none" stroke-width="11"
+                      stroke="{{ '#FFFFFF' if passed else 'var(--brand)' }}"></circle>
+            </svg>
+            <div class="absolute inset-0 grid place-items-center text-center px-6">
+              <div>
+                <p class="font-display text-[2.75rem] sm:text-5xl font-extrabold leading-none">
+                  {{ attempt.score }}<span class="text-2xl align-top">%</span>
+                </p>
+                <p class="text-[11px] font-bold uppercase tracking-wider mt-2"
+                   {% if passed %}style="color:rgba(255,255,255,.8)"{% else %}style="color:var(--ink-4)"{% endif %}>
+                  Ваш результат
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Сертификат / подсказка ── #}
+      {% if certificate %}
+        <div class="mt-9 flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl p-5"
+             {% if passed %}style="background:rgba(255,255,255,.14)"{% else %}style="background:var(--surface-2)"{% endif %}>
+          <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                {% if passed %}style="background:rgba(255,255,255,.22);color:#fff"{% else %}style="background:var(--brand-50);color:var(--brand)"{% endif %}>
+            <i data-lucide="award" class="w-5 h-5"></i>
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="font-display font-bold text-sm">{{ t('learn.certificate') }} готов</p>
+            <p class="text-xs mt-0.5 break-words"
+               {% if passed %}style="color:rgba(255,255,255,.8)"{% else %}style="color:var(--ink-3)"{% endif %}>
+              Номер {{ certificate.code }} — его можно показать куратору или сохранить в PDF.
+            </p>
+          </div>
+          <a href="{{ url_for('learn.certificate', code=certificate.code) }}"
+             class="btn {{ 'btn-dark' if passed else 'btn-primary' }} btn-sm flex-none">
+            <i data-lucide="external-link"></i> Открыть сертификат
+          </a>
+        </div>
+      {% elif not passed and course.certificate_enabled %}
+        <div class="mt-9 flex items-start gap-3.5 rounded-2xl p-5" style="background:var(--surface-2)">
+          <i data-lucide="info" class="w-5 h-5 flex-none mt-0.5" style="color:var(--brand)"></i>
+          <p class="text-sm leading-relaxed" style="color:var(--ink-2)">
+            Сертификат выдаётся, когда результат достигает {{ pass_score }}%. Вам осталось совсем чуть-чуть —
+            попробуйте ещё раз после повторения уроков.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ══════════════════════ РАЗБОР ОТВЕТОВ ══════════════════════ #}
+  <section class="mt-12">
+    <div class="flex flex-wrap items-end justify-between gap-5 mb-7">
+      <div class="max-w-2xl">
+        <h2 class="font-display text-2xl sm:text-3xl font-extrabold leading-tight">Разбор ответов</h2>
+        <p class="mt-2 text-sm ink-muted leading-relaxed">
+          Правильный вариант подсвечен зелёным, ваш неверный выбор — красным.
+          Там, где есть пояснение, мы рассказали, почему ответ именно такой.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="badge badge-emerald"><i data-lucide="check" class="w-3 h-3"></i>Верно: {{ correct }}</span>
+        {% if wrong > 0 %}
+          <span class="badge badge-rose"><i data-lucide="x" class="w-3 h-3"></i>Ошибок: {{ wrong }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if quiz.questions %}
+      <div class="space-y-5">
+        {% for question in quiz.questions %}
+          {% set chosen = answers.get(question.id | string) %}
+          {% set correct_option = question.correct_option %}
+          {% set is_right = correct_option is not none and chosen is not none and chosen == correct_option.id %}
+          <article class="card p-6 sm:p-7 reveal" data-reveal-delay="{{ loop.index0 * 40 }}">
+
+            <div class="flex items-start gap-4">
+              <span class="grid place-items-center w-9 h-9 rounded-xl flex-none text-sm font-extrabold"
+                    {% if is_right %}
+                      style="background:rgba(16,185,129,.12);color:#047857"
+                    {% elif chosen is none %}
+                      style="background:var(--surface-2);color:var(--ink-3)"
+                    {% else %}
+                      style="background:rgba(244,63,94,.12);color:#BE123C"
+                    {% endif %}>
+                {{ loop.index }}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  {% if is_right %}
+                    <span class="badge badge-emerald"><i data-lucide="check" class="w-3 h-3"></i>Верно</span>
+                  {% elif chosen is none %}
+                    <span class="badge badge-slate"><i data-lucide="minus" class="w-3 h-3"></i>Без ответа</span>
+                  {% else %}
+                    <span class="badge badge-rose"><i data-lucide="x" class="w-3 h-3"></i>Неверно</span>
+                  {% endif %}
+                </div>
+                <h3 class="font-display text-lg font-bold leading-snug">{{ question.tr('text') }}</h3>
+              </div>
+            </div>
+
+            {# ── Варианты ответа ── #}
+            <ul class="mt-5 space-y-2.5 sm:pl-[3.25rem]" role="list">
+              {% for option in question.options %}
+                {% set is_chosen = chosen is not none and chosen == option.id %}
+                <li class="flex items-start gap-3 rounded-2xl border px-4 py-3 transition-colors"
+                    {% if option.is_correct %}
+                      style="background:rgba(16,185,129,.09);border-color:rgba(16,185,129,.35)"
+                    {% elif is_chosen %}
+                      style="background:rgba(244,63,94,.09);border-color:rgba(244,63,94,.35)"
+                    {% else %}
+                      style="border-color:var(--line)"
+                    {% endif %}>
+                  <span class="grid place-items-center w-5 h-5 rounded-full flex-none mt-0.5"
+                        {% if option.is_correct %}
+                          style="background:#10B981;color:#fff"
+                        {% elif is_chosen %}
+                          style="background:#F43F5E;color:#fff"
+                        {% else %}
+                          style="border:1.5px solid var(--line-strong);color:transparent"
+                        {% endif %}>
+                    <i data-lucide="{{ 'check' if option.is_correct else 'x' }}" class="w-3 h-3"></i>
+                  </span>
+                  <span class="min-w-0 flex-1 text-sm leading-relaxed"
+                        style="color:{{ 'var(--ink)' if (option.is_correct or is_chosen) else 'var(--ink-2)' }}">
+                    {{ option.tr('text') }}
+                  </span>
+                  <span class="flex flex-wrap justify-end gap-1.5 flex-none">
+                    {% if is_chosen %}
+                      <span class="badge {{ 'badge-emerald' if option.is_correct else 'badge-rose' }} !text-[10px]">Ваш ответ</span>
+                    {% endif %}
+                    {% if option.is_correct and not is_chosen %}
+                      <span class="badge badge-emerald !text-[10px]">Правильный</span>
+                    {% endif %}
+                  </span>
+                </li>
+              {% else %}
+                <li class="text-sm ink-muted px-1">Для этого вопроса ещё не добавлены варианты ответа.</li>
+              {% endfor %}
+            </ul>
+
+            {# ── Пояснение ── #}
+            {% if question.tr('explanation') %}
+              <div class="mt-5 sm:ml-[3.25rem] flex gap-3.5 p-4 rounded-2xl"
+                   style="background:var(--brand-50);border:1px solid color-mix(in srgb,var(--brand) 16%,transparent)">
+                <span class="grid place-items-center w-8 h-8 rounded-xl flex-none"
+                      style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+                  <i data-lucide="lightbulb" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="font-display font-bold text-sm mb-1">Почему так</p>
+                  <p class="text-sm leading-relaxed" style="color:var(--ink-2)">{{ question.tr('explanation') }}</p>
+                </div>
+              </div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      {# ── Пустое состояние ── #}
+      <div class="card p-10 text-center">
+        <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+        </span>
+        <h3 class="font-display text-lg font-bold">Разбор пока недоступен</h3>
+        <p class="text-sm ink-muted mt-2 max-w-md mx-auto leading-relaxed">
+          Вопросы этого теста были изменены после вашей попытки, поэтому показать разбор не получится.
+          Ваш результат сохранён — можно пройти обновлённый тест заново.
+        </p>
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-primary mt-6">
+          <i data-lucide="arrow-left"></i> Вернуться к курсу
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  {# ══════════════════════ ДЕЙСТВИЯ ══════════════════════ #}
+  <div class="card p-6 sm:p-7 mt-10">
+    <div class="flex flex-col lg:flex-row lg:items-center gap-5">
+      <div class="flex-1 min-w-0">
+        <p class="font-display font-bold text-base">Что дальше</p>
+        <p class="text-sm ink-muted mt-1 leading-relaxed">
+          {% if passed %}
+            Загляните в кабинет — там собраны ваши курсы и сертификаты.
+          {% else %}
+            Повторите уроки курса и пройдите тест ещё раз: попытки не ограничены, засчитывается лучший результат.
+          {% endif %}
+        </p>
+      </div>
+      <div class="flex flex-col sm:flex-row flex-wrap gap-3 flex-none">
+        <a href="{{ url_for('learn.quiz', slug=course.slug) }}" class="btn {{ 'btn-ghost' if passed else 'btn-primary' }} magnetic">
+          <i data-lucide="refresh-cw"></i> Пройти заново
+        </a>
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-ghost">
+          <i data-lucide="book-open"></i> Вернуться к курсу
+        </a>
+        {% if certificate %}
+          <a href="{{ url_for('learn.certificate', code=certificate.code) }}" class="btn btn-primary magnetic">
+            <i data-lucide="award"></i> Открыть сертификат
+          </a>
+        {% else %}
+          <a href="{{ url_for('account.learning') }}" class="btn btn-ghost">
+            <i data-lucide="graduation-cap"></i> {{ t('acc.my_courses') }}
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if attempt.passed %}
+<script>
+  (function () {
+    function celebrate() {
+      if (typeof window.hubConfetti === 'function') window.hubConfetti();
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { setTimeout(celebrate, 450); });
+    } else {
+      setTimeout(celebrate, 450);
+    }
+  })();
+</script>
+{% endif %}
+{% endblock %}

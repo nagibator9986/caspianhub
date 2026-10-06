@@ -1,0 +1,519 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Категории{% endblock %}
+{% block heading %}Категории{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Разделы каталога — порядок, иконки, цвета и видимость</p>
+{% endblock %}
+
+{% block actions %}
+  <button type="button" x-data @click="$dispatch('category-new')" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новая категория</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set total = categories | length %}
+{% set active_total = categories | selectattr('is_active') | list | length %}
+{% set ns = namespace(services=0) %}
+{% for item in categories %}
+  {% set ns.services = ns.services + (item.services | length) %}
+{% endfor %}
+
+{% set blank = {
+  'id': '',
+  'name_ru': '', 'name_kk': '', 'name_en': '',
+  'description_ru': '', 'description_kk': '', 'description_en': '',
+  'slug': '', 'icon': 'layout-grid', 'color': '#EB5A40',
+  'position': total + 1, 'is_active': true, 'title': ''
+} %}
+
+{% set icon_presets = ['layout-grid', 'graduation-cap', 'book-open', 'calendar-days', 'library',
+                       'users', 'wallet', 'file-text', 'message-circle', 'life-buoy',
+                       'bus-front', 'utensils'] %}
+{% set color_presets = ['#EB5A40', '#F9A03F', '#10B981', '#0EA5E9', '#8B5CF6', '#EC4899', '#6D6D6B'] %}
+
+<div x-data='categoryEditor({{ blank | tojson }})'
+     @category-new.window="startNew()">
+
+  {# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    {% set metrics = [
+      ('folder-tree', total, 'категорий', 'всего в каталоге', '#EB5A40'),
+      ('eye', active_total, 'активных', 'видны посетителям', '#10B981'),
+      ('layout-grid', ns.services, 'сервисов', 'распределены по разделам', '#0EA5E9'),
+    ] %}
+    {% for icon, value, label, hint, color in metrics %}
+      <div class="card stat-card p-5" style="--glow:{{ color }}">
+        <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+              style="background:{{ color }}1a;color:{{ color }}">
+          <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+        </span>
+        <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+        <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+        <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+    {# ══════════════════════════════════════════════════════════════════ #}
+    {#                        СПИСОК КАТЕГОРИЙ                            #}
+    {# ══════════════════════════════════════════════════════════════════ #}
+    <section class="lg:col-span-7 min-w-0" aria-labelledby="categories-list-title">
+      {% if categories %}
+        <div class="card overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b"
+               style="border-color:var(--line)">
+            <div class="min-w-0">
+              <h2 id="categories-list-title" class="font-display font-bold text-base">Порядок разделов</h2>
+              <p class="text-xs ink-muted mt-0.5">
+                {{ total }} {{ total | plural('категория', 'категории', 'категорий') }} —
+                потяните за ручку слева, чтобы поменять очерёдность на сайте
+              </p>
+            </div>
+            <a href="{{ url_for('public.services') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+              <i data-lucide="external-link"></i><span class="hidden sm:inline">Каталог на сайте</span>
+            </a>
+          </div>
+
+          <div class="p-3 sm:p-4 space-y-3" data-sortable="category">
+            {% for category in categories %}
+              {% set count = category.services | length %}
+              {% set payload = {
+                'id': category.id,
+                'name_ru': category.name_ru or '',
+                'name_kk': category.name_kk or '',
+                'name_en': category.name_en or '',
+                'description_ru': category.description_ru or '',
+                'description_kk': category.description_kk or '',
+                'description_en': category.description_en or '',
+                'slug': category.slug or '',
+                'icon': category.icon or 'layout-grid',
+                'color': category.color or '#EB5A40',
+                'position': category.position or 0,
+                'is_active': true if category.is_active else false,
+                'title': category.tr('name')
+              } %}
+
+              <article data-id="{{ category.id }}"
+                       class="rounded-2xl border p-3.5 sm:p-4 transition-all"
+                       style="background:var(--surface);border-color:var(--line)"
+                       :style="isEditing('{{ category.id }}')
+                         ? 'background:var(--surface);border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 16%,transparent)'
+                         : 'background:var(--surface);border-color:var(--line)'">
+
+                <div class="flex items-start gap-3">
+                  {# ── ручка перетаскивания ── #}
+                  <span class="drag-handle grid place-items-center w-8 h-8 rounded-lg flex-none mt-0.5"
+                        title="Перетащите, чтобы изменить порядок"
+                        role="button" tabindex="-1"
+                        aria-label="Изменить порядок: {{ category.tr('name') }}">
+                    <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                  </span>
+
+                  {# ── иконка в цветном квадрате ── #}
+                  <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                        style="background:{{ category.color or '#EB5A40' }}1a;
+                               color:{{ category.color or '#EB5A40' }};
+                               border:1px solid {{ category.color or '#EB5A40' }}33">
+                    <i data-lucide="{{ category.icon or 'layout-grid' }}" class="w-5 h-5"></i>
+                  </span>
+
+                  {# ── название и описание ── #}
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <h3 class="text-sm font-bold truncate" style="color:var(--ink)">
+                        {{ category.tr('name') }}
+                      </h3>
+                      {% if category.is_active %}
+                        <span class="badge badge-emerald !px-2 !py-0.5 !text-[10px]">
+                          <i data-lucide="eye" class="w-3 h-3"></i>Активна
+                        </span>
+                      {% else %}
+                        <span class="badge badge-slate !px-2 !py-0.5 !text-[10px]">
+                          <i data-lucide="eye-off" class="w-3 h-3"></i>Скрыта
+                        </span>
+                      {% endif %}
+                    </div>
+
+                    <p class="text-[11px] font-mono truncate mt-0.5" style="color:var(--ink-4)">
+                      /category/{{ category.slug }}
+                    </p>
+
+                    {% if category.tr('description') %}
+                      <p class="text-xs ink-muted mt-1.5 line-clamp-2">
+                        {{ category.tr('description') | excerpt(120) }}
+                      </p>
+                    {% endif %}
+
+                    <div class="flex flex-wrap items-center gap-2 mt-2.5">
+                      <span class="badge badge-slate !px-2 !py-0.5 !text-[10px]"
+                            title="Сервисов в категории">
+                        <i data-lucide="layout-grid" class="w-3 h-3"></i>
+                        {{ count }} {{ count | plural('сервис', 'сервиса', 'сервисов') }}
+                      </span>
+                      <span class="text-[11px] tabular-nums" style="color:var(--ink-4)">
+                        позиция {{ category.position or 0 }}
+                      </span>
+                    </div>
+                  </div>
+
+                  {# ── действия ── #}
+                  <div class="flex items-center gap-1.5 flex-none">
+                    <button type="button"
+                            data-payload='{{ payload | tojson }}'
+                            @click="edit(JSON.parse($el.dataset.payload))"
+                            class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                            style="border-color:var(--line);color:var(--ink-3)"
+                            aria-label="Изменить «{{ category.tr('name') }}»" title="Изменить">
+                      <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+
+                    <a href="{{ url_for('public.category', slug=category.slug) }}"
+                       target="_blank" rel="noopener"
+                       class="hidden sm:grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                       style="border-color:var(--line);color:var(--ink-3)"
+                       aria-label="Открыть «{{ category.tr('name') }}» на сайте" title="Посмотреть на сайте">
+                      <i data-lucide="eye" class="w-4 h-4"></i>
+                    </a>
+
+                    {% if count %}
+                      <span class="grid place-items-center w-8 h-8 rounded-lg border opacity-45 cursor-not-allowed"
+                            style="border-color:var(--line);color:var(--ink-4)"
+                            title="Сначала перенесите сервисы в другую категорию">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span class="sr-only">Удаление недоступно: в категории есть сервисы</span>
+                      </span>
+                    {% else %}
+                      <form method="post" action="{{ url_for('admin.category_delete', cat_id=category.id) }}"
+                            data-confirm="Удалить категорию «{{ category.tr('name') }}»? Отменить не получится.">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit"
+                                class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                                style="border-color:var(--line);color:var(--ink-3)"
+                                aria-label="Удалить «{{ category.tr('name') }}»" title="Удалить">
+                          <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </div>
+
+        <p class="help mt-3 flex items-start gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+          <span>
+            Категорию с сервисами удалить нельзя — сначала перенесите их в другой раздел
+            на странице <a href="{{ url_for('admin.services') }}" class="font-semibold"
+                           style="color:var(--brand)">Сервисы</a>.
+          </span>
+        </p>
+
+      {% else %}
+        {# ── пустое состояние ── #}
+        <div class="card p-10 sm:p-14 text-center">
+          <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+            <i data-lucide="folder-tree" class="w-7 h-7"></i>
+          </span>
+          <h2 id="categories-list-title" class="font-display font-extrabold text-lg">Пока пусто</h2>
+          <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+            Категории собирают сервисы в понятные разделы каталога — например «Учёба», «Документы»,
+            «Студенческая жизнь». Создайте первую справа: достаточно названия, иконки и цвета.
+          </p>
+          <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+            <button type="button" @click="startNew()" class="btn btn-primary btn-sm">
+              <i data-lucide="plus"></i>Создать категорию
+            </button>
+            <a href="{{ url_for('admin.services') }}" class="btn btn-ghost btn-sm">
+              <i data-lucide="layout-grid"></i>К сервисам
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# ══════════════════════════════════════════════════════════════════ #}
+    {#                       ФОРМА ДОБАВЛЕНИЯ/ПРАВКИ                      #}
+    {# ══════════════════════════════════════════════════════════════════ #}
+    <aside class="lg:col-span-5 min-w-0 lg:sticky lg:top-24">
+      <form method="post" action="{{ url_for('admin.categories') }}"
+            id="category-form" class="card overflow-hidden" @submit="guard($event)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" :value="form.id">
+
+        {# ── шапка формы ── #}
+        <div class="px-5 py-4 border-b flex items-start gap-3" style="border-color:var(--line)">
+          <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand-700)">
+            <i data-lucide="folder-plus" class="w-4 h-4"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="font-display font-bold text-base truncate"
+                x-text="isEdit ? 'Изменяем категорию' : 'Новая категория'">Новая категория</h2>
+            <p class="text-xs ink-muted mt-0.5 truncate"
+               x-text="isEdit ? (form.title || form.name_ru || 'Без названия') : 'Заполните поля и сохраните'">
+              Заполните поля и сохраните
+            </p>
+          </div>
+          <span class="badge badge-brand !px-2 !py-0.5 !text-[10px] flex-none" x-cloak x-show="isEdit">
+            <i data-lucide="pencil" class="w-3 h-3"></i>правка
+          </span>
+        </div>
+
+        <div class="p-5 space-y-5">
+
+          {# ── языковые вкладки: название + описание ── #}
+          <div data-tabs="lang">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <span class="label !mb-0">Название и описание</span>
+              <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+                {% for code, label, full in [('ru', 'Рус', 'русском'), ('kk', 'Қаз', 'казахском'), ('en', 'Eng', 'английском')] %}
+                  <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                          data-tab="{{ code }}" aria-label="Показать поля на {{ full }}">{{ label }}</button>
+                {% endfor %}
+              </div>
+            </div>
+
+            {% for code, label, hint in [
+              ('ru', 'русском', 'Обязательно — используется как запасной вариант для других языков'),
+              ('kk', 'казахском', 'Необязательно — если пусто, покажем русский вариант'),
+              ('en', 'английском', 'Необязательно — если пусто, покажем русский вариант')
+            ] %}
+              <div data-panel="{{ code }}" class="space-y-4{% if code != 'ru' %} hidden{% endif %}">
+                <div>
+                  <label class="label" for="cat-name-{{ code }}">Название на {{ label }}</label>
+                  <input type="text" id="cat-name-{{ code }}" name="name_{{ code }}"
+                         class="field" maxlength="120" autocomplete="off"
+                         placeholder="{{ 'Например, Учёба и расписание' if code == 'ru' else 'Оставьте пустым, если не нужно' }}"
+                         x-model="form.name_{{ code }}">
+                  <p class="help">{{ hint }}</p>
+                </div>
+
+                <div>
+                  <label class="label" for="cat-desc-{{ code }}">Короткое описание</label>
+                  <textarea id="cat-desc-{{ code }}" name="description_{{ code }}"
+                            class="field !min-h-[6rem]" rows="3"
+                            placeholder="Одно-два предложения о том, что собрано в разделе"
+                            x-model="form.description_{{ code }}"></textarea>
+                  <p class="help">Показывается под заголовком раздела в каталоге.</p>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          {# ── адрес раздела ── #}
+          <div>
+            <label class="label" for="cat-slug">Адрес раздела</label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono pointer-events-none"
+                    style="color:var(--ink-4)">/category/</span>
+              <input type="text" id="cat-slug" name="slug" class="field !pl-[5.6rem] font-mono text-sm"
+                     maxlength="80" autocomplete="off" data-slugify
+                     placeholder="uchyoba" x-model="form.slug">
+            </div>
+            <p class="help">Оставьте пустым — соберём адрес автоматически из названия на русском.</p>
+          </div>
+
+          {# ── иконка ── #}
+          <div>
+            <label class="label" for="cat-icon">Иконка</label>
+            <div class="flex items-center gap-3">
+              <span id="cat-icon-preview" x-effect="syncIcon()"
+                    class="grid place-items-center w-12 h-12 rounded-xl flex-none"
+                    aria-hidden="true"
+                    :style="'background:' + (form.color || '#EB5A40') + '1a;color:' + (form.color || '#EB5A40') + ';border:1px solid ' + (form.color || '#EB5A40') + '33'"></span>
+              <input type="text" id="cat-icon" name="icon" class="field flex-1"
+                     maxlength="60" autocomplete="off" placeholder="layout-grid"
+                     x-model="form.icon">
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2.5">
+              {% for name in icon_presets %}
+                <button type="button" @click="form.icon = '{{ name }}'"
+                        class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                        style="border-color:var(--line);color:var(--ink-3)"
+                        :style="form.icon === '{{ name }}'
+                          ? 'border-color:var(--brand);color:var(--brand);background:var(--brand-50)'
+                          : 'border-color:var(--line);color:var(--ink-3)'"
+                        title="{{ name }}" aria-label="Выбрать иконку {{ name }}">
+                  <i data-lucide="{{ name }}" class="w-4 h-4"></i>
+                </button>
+              {% endfor %}
+            </div>
+            <p class="help">
+              Любое имя из набора Lucide, например <span class="font-mono">book-open</span>.
+              Полный список — на
+              <a href="https://lucide.dev/icons/" target="_blank" rel="noopener"
+                 class="font-semibold" style="color:var(--brand)">lucide.dev</a>.
+            </p>
+          </div>
+
+          {# ── цвет ── #}
+          <div>
+            <label class="label" for="cat-color-text">Цвет раздела</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="cat-color" class="w-12 h-11 rounded-xl border cursor-pointer flex-none p-1"
+                     style="background:var(--surface);border-color:var(--line-strong)"
+                     data-color-sync="#cat-color-text" x-model="form.color"
+                     aria-label="Выбрать цвет раздела">
+              <input type="text" id="cat-color-text" name="color" class="field font-mono uppercase"
+                     maxlength="20" autocomplete="off" placeholder="#EB5A40"
+                     pattern="#[0-9a-fA-F]{6}" x-model="form.color">
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2.5">
+              {% for hex in color_presets %}
+                <button type="button" @click="form.color = '{{ hex }}'"
+                        class="w-8 h-8 rounded-lg border-2 transition-transform hover:scale-110"
+                        style="background:{{ hex }}"
+                        :style="(form.color || '').toUpperCase() === '{{ hex | upper }}'
+                          ? 'background:{{ hex }};border-color:var(--ink)'
+                          : 'background:{{ hex }};border-color:transparent'"
+                        title="{{ hex }}" aria-label="Выбрать цвет {{ hex }}"></button>
+              {% endfor %}
+            </div>
+            <p class="help">Цвет подсвечивает иконку раздела в каталоге и на карточках сервисов.</p>
+          </div>
+
+          {# ── позиция и видимость ── #}
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="cat-position">Позиция</label>
+              <input type="number" id="cat-position" name="position" class="field tabular-nums"
+                     min="0" max="9999" step="1" x-model="form.position">
+              <p class="help">Меньше число — выше в списке.</p>
+            </div>
+
+            <div>
+              <span class="label">Видимость</span>
+              <div class="flex items-center gap-3 rounded-xl border px-3.5 py-2.5"
+                   style="border-color:var(--line);background:var(--surface-2)">
+                <label class="switch">
+                  <input type="checkbox" name="is_active" x-model="form.is_active"
+                         aria-describedby="cat-active-hint">
+                  <span></span>
+                </label>
+                <span class="min-w-0">
+                  <span class="block text-sm font-semibold"
+                        x-text="form.is_active ? 'Показывать на сайте' : 'Скрыта от посетителей'">
+                    Показывать на сайте
+                  </span>
+                  <span id="cat-active-hint" class="block text-[11px] ink-muted">
+                    Скрытый раздел не виден в каталоге
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# ── кнопки ── #}
+        <div class="px-5 py-4 border-t flex flex-wrap items-center gap-2"
+             style="border-color:var(--line);background:var(--surface-2)">
+          <button type="submit" class="btn btn-primary btn-sm flex-1 sm:flex-none">
+            <i data-lucide="save"></i>
+            <span x-text="isEdit ? 'Сохранить изменения' : 'Создать категорию'">Создать категорию</span>
+          </button>
+          <button type="button" @click="startNew()" class="btn btn-ghost btn-sm flex-1 sm:flex-none">
+            <i data-lucide="rotate-ccw"></i>Отмена
+          </button>
+          <span class="text-[11px] ink-muted w-full sm:w-auto sm:ml-auto" x-cloak x-show="isEdit">
+            «Отмена» вернёт форму к созданию новой категории
+          </span>
+        </div>
+      </form>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('categoryEditor', (blank) => ({
+      blank: blank,
+      form: Object.assign({}, blank),
+
+      get isEdit() {
+        return String(this.form.id || '') !== '';
+      },
+
+      isEditing(id) {
+        return String(this.form.id || '') === String(id);
+      },
+
+      /* Заполняет форму данными выбранной категории */
+      edit(data) {
+        this.form = Object.assign({}, this.blank, data || {});
+        this.$nextTick(() => {
+          this.refreshHelpers();
+          const card = document.getElementById('category-form');
+          if (card && window.matchMedia('(max-width: 1023px)').matches) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const first = document.getElementById('cat-name-ru');
+          if (first) first.focus({ preventScroll: true });
+        });
+      },
+
+      /* Сбрасывает форму к созданию новой категории */
+      startNew() {
+        this.form = Object.assign({}, this.blank);
+        this.$nextTick(() => {
+          this.refreshHelpers();
+          const card = document.getElementById('category-form');
+          if (card && window.matchMedia('(max-width: 1023px)').matches) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const first = document.getElementById('cat-name-ru');
+          if (first) first.focus({ preventScroll: true });
+        });
+      },
+
+      /* Сообщает вспомогательным скриптам админки о новых значениях полей */
+      refreshHelpers() {
+        const form = document.getElementById('category-form');
+        if (!form) return;
+        form.querySelectorAll('input, textarea').forEach((el) => {
+          if (el.type === 'hidden' || el.type === 'checkbox') return;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      },
+
+      /* Живой предпросмотр иконки Lucide */
+      syncIcon() {
+        const name = (this.form.icon || '').toString().trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const box = document.getElementById('cat-icon-preview');
+        if (!box) return;
+        const draw = (icon) => {
+          box.innerHTML = '';
+          const node = document.createElement('i');
+          node.setAttribute('data-lucide', icon);
+          node.setAttribute('class', 'w-6 h-6');
+          box.appendChild(node);
+          try {
+            if (window.lucide) window.lucide.createIcons();
+          } catch (e) { /* имя иконки не найдено */ }
+          return !box.querySelector('i[data-lucide]');
+        };
+        if (!draw(name || 'layout-grid') && name !== 'layout-grid') draw('layout-grid');
+      },
+
+      /* Не отправляем форму без названия на русском */
+      guard(event) {
+        if (String(this.form.name_ru || '').trim()) return;
+        event.preventDefault();
+        const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+        if (tab) tab.click();
+        const field = document.getElementById('cat-name-ru');
+        if (field) field.focus();
+        if (window.hubToast) window.hubToast('Укажите название на русском', 'error');
+      },
+    }));
+  });
+</script>
+{% endblock %}

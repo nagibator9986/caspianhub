@@ -1,0 +1,105 @@
+<footer class="relative mt-24 overflow-hidden no-print" style="background:var(--surface-2);border-top:1px solid var(--line)">
+  <div class="aurora opacity-40"><span></span><span></span><span></span></div>
+
+  <div class="container-hub relative z-10 pt-16 pb-10">
+    <div class="grid gap-10 lg:grid-cols-12">
+
+      <div class="lg:col-span-4">
+        <a href="{{ url_for('public.index') }}" class="flex items-center gap-3 mb-4">
+          <img src="{{ setting('site_logo') or url_for('static', filename='img/ccu-logo.png') }}"
+               alt="" class="h-11 w-auto">
+          <span class="leading-tight">
+            <span class="block font-display font-extrabold text-base">{{ setting('site_name', 'Caspian College Hub') }}</span>
+            <span class="block text-[11px] ink-muted">{{ setting('site_tagline', 'Единое окно сервисов колледжа') }}</span>
+          </span>
+        </a>
+        <p class="text-sm ink-muted leading-relaxed max-w-sm">
+          {{ setting('footer_about', 'Все цифровые сервисы Колледжа Каспийского университета в одном месте — с понятным описанием и коротким обучением по каждому.') }}
+        </p>
+
+        <div class="flex gap-2.5 mt-6">
+          {% set socials = [
+            ('instagram', setting('social_instagram', 'https://www.instagram.com/college.caspian/')),
+            ('facebook', setting('social_facebook', 'https://www.facebook.com/CollegeCaspian')),
+            ('message-circle', setting('social_whatsapp', 'https://wa.me/77064308461')),
+            ('globe', setting('social_site', 'https://ccu.edu.kz')),
+          ] %}
+          {% for icon, href in socials %}
+            {% if href %}
+              <a href="{{ href }}" target="_blank" rel="noopener" aria-label="{{ icon }}"
+                 class="w-10 h-10 grid place-items-center rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:text-white hover:border-transparent"
+                 style="border-color:var(--line-strong);color:var(--ink-3)"
+                 onmouseover="this.style.background='linear-gradient(135deg,var(--brand),var(--brand-2))'"
+                 onmouseout="this.style.background=''">
+                <i data-lucide="{{ icon }}" class="w-[18px] h-[18px]"></i>
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <h3 class="font-display font-bold text-sm mb-4">Платформа</h3>
+        <ul class="space-y-2.5 text-sm">
+          <li><a href="{{ url_for('public.services') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.services') }}</a></li>
+          <li><a href="{{ url_for('public.courses') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.courses') }}</a></li>
+          <li><a href="{{ url_for('public.news') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.news') }}</a></li>
+          <li><a href="{{ url_for('public.faq') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.faq') }}</a></li>
+          <li><a href="{{ url_for('public.about') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.about') }}</a></li>
+          <li><a href="{{ url_for('public.support') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.help') }}</a></li>
+        </ul>
+      </div>
+
+      <div class="lg:col-span-3">
+        <h3 class="font-display font-bold text-sm mb-4">Категории</h3>
+        <ul class="space-y-2.5 text-sm">
+          {% for cat in all_categories()[:6] %}
+            <li>
+              <a href="{{ url_for('public.category', slug=cat.slug) }}"
+                 class="ink-muted hover:text-[var(--brand)] transition-colors inline-flex items-center gap-2">
+                <i data-lucide="{{ cat.icon }}" class="w-3.5 h-3.5" style="color:{{ cat.color }}"></i>
+                {{ cat.tr('name') }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="lg:col-span-3">
+        <h3 class="font-display font-bold text-sm mb-4">Колледж</h3>
+        <ul class="space-y-3 text-sm ink-muted">
+          <li class="flex gap-2.5">
+            <i data-lucide="map-pin" class="w-4 h-4 flex-none mt-0.5" style="color:var(--brand)"></i>
+            <span>{{ setting('contact_address', 'г. Алматы, проспект Сейфуллина, 521') }}</span>
+          </li>
+          <li class="flex gap-2.5">
+            <i data-lucide="phone" class="w-4 h-4 flex-none mt-0.5" style="color:var(--brand)"></i>
+            <a href="tel:{{ setting('contact_phone', '+77272793777') | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') }}"
+               class="hover:text-[var(--brand)] transition-colors">{{ setting('contact_phone', '+7 (727) 279-3777') }}</a>
+          </li>
+          <li class="flex gap-2.5">
+            <i data-lucide="mail" class="w-4 h-4 flex-none mt-0.5" style="color:var(--brand)"></i>
+            <a href="mailto:{{ setting('contact_email', 'info@ccu.edu.kz') }}"
+               class="hover:text-[var(--brand)] transition-colors">{{ setting('contact_email', 'info@ccu.edu.kz') }}</a>
+          </li>
+          <li class="flex gap-2.5">
+            <i data-lucide="clock" class="w-4 h-4 flex-none mt-0.5" style="color:var(--brand)"></i>
+            <span>{{ setting('contact_hours', 'Пн–Пт, 09:00–18:00') }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs ink-muted"
+         style="border-color:var(--line)">
+      <p>© {{ now.year }} {{ setting('site_name', 'Caspian College Hub') }} · {{ setting('footer_legal', 'Колледж Каспийского университета') }}</p>
+      <div class="flex items-center gap-5">
+        {% for item in nav_items('footer') %}
+          <a href="{{ item.url }}" {% if item.is_external %}target="_blank" rel="noopener"{% endif %}
+             class="hover:text-[var(--brand)] transition-colors">{{ item.tr('title') }}</a>
+        {% endfor %}
+        <a href="{{ url_for('public.sitemap') }}" class="hover:text-[var(--brand)] transition-colors">Карта сайта</a>
+      </div>
+    </div>
+  </div>
+</footer>

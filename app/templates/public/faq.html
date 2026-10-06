@@ -1,0 +1,408 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ t('svc.faq') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Ответы на частые вопросы о сервисах колледжа: доступ, обучение, документы и поддержка. Найдите нужный ответ за пару секунд.{% endblock %}
+
+{% set group_icons = {
+  'Общее': 'circle-help',
+  'Общие вопросы': 'circle-help',
+  'Аккаунт': 'user-round',
+  'Аккаунт и вход': 'key-round',
+  'Доступ': 'key-round',
+  'Доступ и вход': 'key-round',
+  'Вход': 'log-in',
+  'Регистрация': 'user-plus',
+  'Обучение': 'graduation-cap',
+  'Курсы': 'graduation-cap',
+  'Сервисы': 'layout-grid',
+  'Документы': 'file-text',
+  'Справки': 'file-badge',
+  'Практика': 'briefcase',
+  'Библиотека': 'library',
+  'Расписание': 'calendar-days',
+  'Общежитие': 'building-2',
+  'Оплата': 'wallet',
+  'Приём': 'user-plus',
+  'Поступление': 'user-plus',
+  'Сертификаты': 'award',
+  'Безопасность': 'shield-check',
+  'Мобильные приложения': 'smartphone',
+  'Поддержка': 'life-buoy',
+  'Техподдержка': 'life-buoy'
+} %}
+
+{% block content %}
+
+{# ══════════════════════ ШАПКА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-14 lg:pb-16">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('svc.faq') }}</span>
+    </nav>
+
+    <div class="max-w-3xl">
+      <span class="badge badge-brand animate-fade-up">
+        <i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>
+        Поддержка
+      </span>
+
+      <h1 class="font-display text-[2.3rem] sm:text-5xl xl:text-[3.5rem] font-extrabold leading-[1.06] mt-6 animate-fade-up" style="animation-delay:.08s">
+        Частые <span class="text-gradient">вопросы</span>
+      </h1>
+
+      <p class="mt-5 text-lg ink-muted leading-relaxed max-w-2xl animate-fade-up" style="animation-delay:.16s">
+        Собрали здесь то, о чём спрашивают чаще всего — про доступ к сервисам, обучение,
+        документы и справки. Начните печатать вопрос, и мы покажем подходящие ответы.
+      </p>
+
+      {# Живой поиск по вопросам #}
+      <div class="relative mt-8 max-w-xl animate-fade-up" style="animation-delay:.24s" role="search">
+        <label for="faq-search" class="sr-only">Поиск по вопросам и ответам</label>
+        <i data-lucide="search" class="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-4)"></i>
+        <input id="faq-search" type="search" autocomplete="off" inputmode="search"
+               placeholder="Например: как войти, справка, сертификат"
+               aria-describedby="faq-search-status"
+               class="field !pl-14 !pr-14 !py-4 !rounded-full !text-base shadow-card">
+        <button type="button" id="faq-search-clear" aria-label="Очистить поиск"
+                class="absolute right-4 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-full transition-colors hidden"
+                style="background:var(--surface-2);color:var(--ink-3)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-xs animate-fade-up" style="animation-delay:.3s">
+        <span class="inline-flex items-center gap-1.5 font-semibold" style="color:var(--ink-3)">
+          <i data-lucide="list" class="w-3.5 h-3.5" style="color:var(--brand)"></i>
+          {{ total }} {{ total | plural('вопрос', 'вопроса', 'вопросов') }}
+        </span>
+        <span class="inline-flex items-center gap-1.5 font-semibold" style="color:var(--ink-3)">
+          <i data-lucide="folder-tree" class="w-3.5 h-3.5" style="color:var(--brand)"></i>
+          {{ groups | length }} {{ groups | length | plural('раздел', 'раздела', 'разделов') }}
+        </span>
+        <span id="faq-search-status" class="font-semibold hidden" aria-live="polite" style="color:var(--brand)"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ВОПРОСЫ ══════════════════════ #}
+<section class="pb-20 lg:pb-24">
+  <div class="container-hub">
+
+    {% if total %}
+      <div class="grid lg:grid-cols-12 gap-8 xl:gap-12 items-start">
+
+        {# ── Оглавление ── #}
+        <aside class="lg:col-span-3 lg:sticky lg:top-24">
+          <div class="card p-5">
+            <p class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider mb-4" style="color:var(--ink-4)">
+              <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+              Разделы
+            </p>
+
+            <nav class="flex flex-row lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible -mx-1 px-1 pb-1 lg:pb-0"
+                 aria-label="Разделы вопросов">
+              {% for name, items in groups.items() %}
+                <a href="#faq-group-{{ loop.index }}" data-faq-nav="{{ loop.index }}"
+                   class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-all duration-250 hover:bg-[var(--brand-50)] hover:text-[var(--brand)]"
+                   style="color:var(--ink-2)">
+                  <i data-lucide="{{ group_icons.get(name, 'circle-help') }}" class="w-4 h-4 flex-none" style="color:var(--brand)"></i>
+                  <span class="flex-1 leading-snug">{{ name }}</span>
+                  <span data-faq-nav-count
+                        class="flex-none text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                        style="background:var(--surface-2);color:var(--ink-3)">{{ items | length }}</span>
+                </a>
+              {% endfor %}
+            </nav>
+
+            <div class="mt-5 pt-5 border-t" style="border-color:var(--line)">
+              <p class="text-xs ink-muted leading-relaxed">
+                Не нашли свой вопрос? Напишите нам — ответим в рабочие часы.
+              </p>
+              <a href="{{ url_for('public.support') }}" class="btn btn-soft btn-sm btn-block mt-3">
+                <i data-lucide="message-circle"></i>
+                Задать вопрос
+              </a>
+            </div>
+          </div>
+        </aside>
+
+        {# ── Группы вопросов ── #}
+        <div class="lg:col-span-9 space-y-12">
+          {% for name, items in groups.items() %}
+            {% set group_index = loop.index %}
+            {% set is_first_group = loop.first %}
+            <section id="faq-group-{{ group_index }}" data-faq-group="{{ group_index }}"
+                     class="scroll-mt-28 reveal" data-reveal-delay="{{ loop.index0 * 60 }}">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="grid place-items-center w-11 h-11 rounded-2xl flex-none"
+                      style="background:linear-gradient(135deg,var(--brand-50),transparent);color:var(--brand)">
+                  <i data-lucide="{{ group_icons.get(name, 'circle-help') }}" class="w-5 h-5"></i>
+                </span>
+                <h2 class="font-display text-2xl font-extrabold leading-tight flex-1 min-w-0">{{ name }}</h2>
+                <span class="badge badge-slate flex-none">
+                  <span data-faq-group-count>{{ items | length }}</span>
+                </span>
+              </div>
+
+              <div data-acc="single" class="mt-4">
+                {% for item in items %}
+                  <div class="acc{% if is_first_group and loop.first %} is-open{% endif %}" data-faq-item>
+                    <button class="acc__btn" type="button">
+                      <span>{{ item.tr('question') }}</span>
+                      <span class="acc__icon"><i data-lucide="plus" class="w-4 h-4"></i></span>
+                    </button>
+                    <div class="acc__panel">
+                      <div class="prose-hub pb-6 !text-[15px]">
+                        {% if item.tr('answer') %}
+                          {{ item.tr('answer') | markdown }}
+                        {% else %}
+                          <p class="ink-muted">Ответ скоро появится. Если вопрос срочный — напишите в поддержку.</p>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+
+          {# Пустой результат поиска #}
+          <div id="faq-empty-search" class="card p-10 text-center hidden">
+            <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto"
+                  style="background:var(--surface-2);color:var(--ink-4)">
+              <i data-lucide="search-x" class="w-8 h-8"></i>
+            </span>
+            <h3 class="font-display text-xl font-extrabold mt-5">Ничего не нашлось</h3>
+            <p class="text-sm ink-muted mt-2 max-w-md mx-auto leading-relaxed">
+              По запросу <span id="faq-empty-query" class="font-semibold" style="color:var(--ink)"></span>
+              подходящих вопросов нет. Попробуйте другое слово или задайте вопрос нам напрямую.
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
+              <button type="button" id="faq-reset" class="btn btn-ghost btn-sm">
+                <i data-lucide="rotate-ccw"></i>
+                Показать все вопросы
+              </button>
+              <a href="{{ url_for('public.support') }}" class="btn btn-primary btn-sm">
+                <i data-lucide="message-circle"></i>
+                Задать свой вопрос
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    {% else %}
+      {# Пустое состояние страницы #}
+      <div class="card p-12 text-center max-w-2xl mx-auto reveal">
+        <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="circle-help" class="w-8 h-8"></i>
+        </span>
+        <h2 class="font-display text-2xl font-extrabold mt-6">{{ t('common.empty') }}</h2>
+        <p class="text-sm ink-muted mt-3 max-w-md mx-auto leading-relaxed">
+          Раздел вопросов и ответов только наполняется. А пока — напишите нам,
+          и мы ответим лично, а ваш вопрос попадёт сюда.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-7">
+          <a href="{{ url_for('public.support') }}" class="btn btn-primary">
+            <i data-lucide="message-circle"></i>
+            Написать в поддержку
+          </a>
+          <a href="{{ url_for('public.services') }}" class="btn btn-ghost">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{# ══════════════════════ НЕ НАШЛИ ОТВЕТ ══════════════════════ #}
+<section class="pb-24">
+  <div class="container-hub">
+    <div class="card p-8 sm:p-10 reveal" style="background:var(--surface-2)">
+      <div class="grid lg:grid-cols-12 gap-8 items-center">
+
+        <div class="lg:col-span-7">
+          <div class="flex items-start gap-4">
+            <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+                  style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+              <i data-lucide="life-buoy" class="w-6 h-6"></i>
+            </span>
+            <div class="min-w-0">
+              <h2 class="font-display text-2xl font-extrabold leading-tight">Не нашли ответ?</h2>
+              <p class="text-sm ink-muted mt-2 leading-relaxed max-w-lg">
+                Опишите ситуацию — мы подскажем, куда нажать, или передадим вопрос сотруднику,
+                который отвечает за этот сервис. Обычно отвечаем в течение рабочего дня.
+              </p>
+              <a href="{{ url_for('public.support') }}" class="btn btn-primary mt-6 magnetic">
+                <i data-lucide="send"></i>
+                Написать в поддержку
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5">
+          <div class="card p-5 space-y-2" style="background:var(--surface)">
+            <p class="text-[11px] font-extrabold uppercase tracking-wider mb-1" style="color:var(--ink-4)">
+              Прямые контакты
+            </p>
+
+            {% set contact_email = setting('contact_email', 'info@ccu.edu.kz') %}
+            {% if contact_email %}
+              <a href="mailto:{{ contact_email }}"
+                 class="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--brand-50)] group">
+                <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                      style="background:var(--brand-50);color:var(--brand)">
+                  <i data-lucide="mail" class="w-[18px] h-[18px]"></i>
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-[11px] ink-muted">Почта</span>
+                  <span class="block text-sm font-bold truncate transition-colors group-hover:text-[var(--brand)]">{{ contact_email }}</span>
+                </span>
+              </a>
+            {% endif %}
+
+            {% set contact_phone = setting('contact_phone', '+7 (727) 279-3777') %}
+            {% if contact_phone %}
+              <a href="tel:{{ contact_phone | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') }}"
+                 class="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--brand-50)] group">
+                <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                      style="background:var(--brand-50);color:var(--brand)">
+                  <i data-lucide="phone" class="w-[18px] h-[18px]"></i>
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-[11px] ink-muted">Телефон</span>
+                  <span class="block text-sm font-bold truncate transition-colors group-hover:text-[var(--brand)]">{{ contact_phone }}</span>
+                </span>
+              </a>
+            {% endif %}
+
+            {% if not contact_email and not contact_phone %}
+              <p class="text-sm ink-muted p-3">
+                Контакты пока не указаны — воспользуйтесь формой поддержки.
+              </p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var input = document.getElementById('faq-search');
+    if (!input) return;
+
+    var clearBtn = document.getElementById('faq-search-clear');
+    var resetBtn = document.getElementById('faq-reset');
+    var status = document.getElementById('faq-search-status');
+    var emptyBox = document.getElementById('faq-empty-search');
+    var emptyQuery = document.getElementById('faq-empty-query');
+    var items = Array.prototype.slice.call(document.querySelectorAll('[data-faq-item]'));
+    var groups = Array.prototype.slice.call(document.querySelectorAll('[data-faq-group]'));
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('[data-faq-nav]'));
+
+    if (!items.length) return;
+
+    function norm(value) {
+      return (value || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+    }
+
+    function show(el, visible) {
+      if (!el) return;
+      el.style.display = visible ? '' : 'none';
+    }
+
+    // Текст вопроса и ответа кэшируем один раз
+    items.forEach(function (el) {
+      el.dataset.haystack = norm(el.textContent);
+    });
+
+    function apply() {
+      var query = norm(input.value);
+      var visibleTotal = 0;
+
+      items.forEach(function (el) {
+        var match = !query || el.dataset.haystack.indexOf(query) !== -1;
+        show(el, match);
+        if (match) visibleTotal += 1;
+      });
+
+      groups.forEach(function (group) {
+        var shown = group.querySelectorAll('[data-faq-item]').length
+          ? Array.prototype.filter.call(
+              group.querySelectorAll('[data-faq-item]'),
+              function (el) { return el.style.display !== 'none'; }
+            ).length
+          : 0;
+
+        show(group, shown > 0);
+
+        var badge = group.querySelector('[data-faq-group-count]');
+        if (badge) badge.textContent = shown;
+
+        var link = navLinks.filter(function (a) {
+          return a.dataset.faqNav === group.dataset.faqGroup;
+        })[0];
+        if (link) {
+          show(link, shown > 0);
+          var navCount = link.querySelector('[data-faq-nav-count]');
+          if (navCount) navCount.textContent = shown;
+        }
+      });
+
+      if (emptyBox) show(emptyBox, query !== '' && visibleTotal === 0);
+      if (emptyQuery) emptyQuery.textContent = '«' + input.value.trim() + '»';
+
+      if (clearBtn) clearBtn.classList.toggle('hidden', input.value === '');
+
+      if (status) {
+        if (query === '') {
+          status.classList.add('hidden');
+          status.textContent = '';
+        } else {
+          status.classList.remove('hidden');
+          status.textContent = visibleTotal === 0
+            ? 'Совпадений нет'
+            : 'Найдено: ' + visibleTotal;
+        }
+      }
+    }
+
+    function reset() {
+      input.value = '';
+      apply();
+      input.focus();
+    }
+
+    var timer = null;
+    input.addEventListener('input', function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(apply, 120);
+    });
+
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') reset();
+    });
+
+    if (clearBtn) clearBtn.addEventListener('click', reset);
+    if (resetBtn) resetBtn.addEventListener('click', reset);
+
+    apply();
+  })();
+</script>
+{% endblock %}

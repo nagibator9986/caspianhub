@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Панель управления{% endblock %} — {{ setting('site_name', 'Caspian College Hub') }}</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <script src="{{ url_for('static', filename='vendor/tailwind.js') }}"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {
+        colors: {
+          brand: { DEFAULT:'var(--brand)', 50:'var(--brand-50)', 100:'var(--brand-100)', 200:'var(--brand-200)',
+                   300:'var(--brand-300)', 500:'var(--brand-500)', 600:'var(--brand-600)', 700:'var(--brand-700)' },
+          ink:'var(--ink)', 'ink-2':'var(--ink-2)', 'ink-3':'var(--ink-3)', 'ink-4':'var(--ink-4)',
+          surface:'var(--surface)', 'surface-2':'var(--surface-2)', line:'var(--line)', 'line-strong':'var(--line-strong)',
+          canvas:'var(--bg)', 'canvas-soft':'var(--bg-soft)',
+        },
+        fontFamily: { sans:['Inter','system-ui','sans-serif'], display:['Manrope','Inter','sans-serif'] },
+        boxShadow: { soft:'var(--sh-sm)', card:'var(--sh-md)', lift:'var(--sh-lg)' },
+      }},
+    }
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/notyf.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/easymde.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <style>
+    :root{ --brand: {{ setting('brand_color', '#EB5A40') }}; --brand-2: {{ setting('brand_color_2', '#F9A03F') }}; }
+    [x-cloak]{display:none!important}
+    .EasyMDEContainer .CodeMirror{border-radius:var(--r-sm);border-color:var(--line-strong);background:var(--surface);color:var(--ink)}
+    .editor-toolbar{border-radius:var(--r-sm) var(--r-sm) 0 0;border-color:var(--line-strong);background:var(--surface-2)}
+    .editor-toolbar button{color:var(--ink-2)!important}
+    .editor-toolbar button:hover{background:var(--brand-50)!important;border-color:var(--brand-200)!important}
+  </style>
+  <script>
+    (function(){ try{ if(localStorage.getItem('ccu-hub-theme')==='dark') document.documentElement.classList.add('dark'); }catch(e){} })();
+  </script>
+  {% block head %}{% endblock %}
+</head>
+
+<body class="min-h-screen" style="background:var(--bg-soft)">
+<div class="admin-shell">
+
+  {# ══════════════════ БОКОВОЕ МЕНЮ ══════════════════ #}
+  <aside class="hidden lg:flex flex-col border-r" style="background:var(--surface);border-color:var(--line)">
+    <div class="p-5 border-b" style="border-color:var(--line)">
+      <a href="{{ url_for('public.index') }}" class="flex items-center gap-2.5 group">
+        <img src="{{ url_for('static', filename='img/ccu-logo.png') }}" alt="" class="h-9 w-auto">
+        <span class="leading-tight min-w-0">
+          <span class="block font-display font-extrabold text-[13px] truncate">{{ setting('site_name', 'Caspian College Hub') }}</span>
+          <span class="block text-[10px] ink-muted">Панель управления</span>
+        </span>
+      </a>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto p-3 space-y-5">
+      {% set menu = [
+        ('Обзор', [
+          ('admin.dashboard', 'layout-dashboard', 'Дашборд', none),
+          ('admin.analytics', 'chart-line', 'Аналитика', none),
+        ]),
+        ('Содержимое', [
+          ('admin.services', 'layout-grid', 'Сервисы', none),
+          ('admin.categories', 'folder-tree', 'Категории', none),
+          ('admin.courses', 'graduation-cap', 'Курсы и уроки', none),
+          ('admin.news', 'newspaper', 'Новости', none),
+          ('admin.faq', 'circle-help', 'Вопросы и ответы', none),
+          ('admin.testimonials', 'quote', 'Отзывы', none),
+        ]),
+        ('Оформление', [
+          ('admin.home_sections', 'house', 'Блоки главной', none),
+          ('admin.menu', 'menu', 'Меню сайта', none),
+          ('admin.settings', 'settings-2', 'Настройки', none),
+          ('admin.media', 'image', 'Медиафайлы', none),
+        ]),
+        ('Люди', [
+          ('admin.users', 'users', 'Пользователи', none),
+          ('admin.feedback', 'inbox', 'Обращения', 'feedback'),
+          ('admin.audit_log', 'scroll-text', 'Журнал действий', none),
+        ]),
+      ] %}
+
+      {% for group_title, links in menu %}
+        <div>
+          <p class="px-3 mb-1.5 text-[10px] font-extrabold uppercase tracking-[.12em]" style="color:var(--ink-4)">{{ group_title }}</p>
+          {% for endpoint, icon, label, badge in links %}
+            <a href="{{ url_for(endpoint) }}"
+               class="admin-nav {% if request.endpoint == endpoint or (request.endpoint or '').startswith(endpoint.rsplit('.',1)[0] + '.' + endpoint.rsplit('.',1)[1].rstrip('s')) %}is-active{% endif %}">
+              <i data-lucide="{{ icon }}"></i>
+              <span class="flex-1">{{ label }}</span>
+              {% if badge == 'feedback' %}
+                {% set new_count = counts.feedback_new if counts is defined else None %}
+                {% if new_count %}
+                  <span class="badge badge-rose !px-1.5 !py-0.5 !text-[10px]">{{ new_count }}</span>
+                {% endif %}
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </nav>
+
+    <div class="p-3 border-t" style="border-color:var(--line)">
+      <a href="{{ url_for('public.index') }}" class="admin-nav"><i data-lucide="external-link"></i>Открыть сайт</a>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="admin-nav w-full !text-left"><i data-lucide="log-out"></i>Выйти</button>
+      </form>
+    </div>
+  </aside>
+
+  {# ══════════════════ ОСНОВНАЯ ОБЛАСТЬ ══════════════════ #}
+  <div class="flex flex-col min-w-0">
+
+    <header class="sticky top-0 z-40 border-b px-5 lg:px-8 py-3.5 flex items-center gap-4"
+            style="background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(16px);border-color:var(--line)">
+
+      <button class="lg:hidden chip !px-2.5 !py-2" x-data @click="document.getElementById('admin-mobile-nav').classList.toggle('hidden')" aria-label="Меню">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+      </button>
+
+      <div class="min-w-0 flex-1">
+        <h1 class="font-display font-extrabold text-lg leading-tight truncate">{% block heading %}{{ self.title() }}{% endblock %}</h1>
+        {% block subheading %}{% endblock %}
+      </div>
+
+      <div class="flex items-center gap-2 flex-none">
+        {% block actions %}{% endblock %}
+        <button data-theme-toggle class="chip !px-2.5 !py-2" aria-label="Тема">
+          <i data-theme-icon data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+        <span class="hidden sm:flex items-center gap-2 pl-2 ml-1 border-l" style="border-color:var(--line)">
+          <span class="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold text-white"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">{{ current_user.initials }}</span>
+          <span class="leading-tight hidden xl:block">
+            <span class="block text-xs font-bold truncate max-w-[10rem]">{{ current_user.full_name or current_user.email }}</span>
+            <span class="block text-[10px] ink-muted">{{ 'Администратор' if current_user.is_admin else 'Редактор' }}</span>
+          </span>
+        </span>
+      </div>
+    </header>
+
+    {# Мобильное меню админки #}
+    <nav id="admin-mobile-nav" class="hidden lg:hidden border-b p-3 space-y-1" style="background:var(--surface);border-color:var(--line)">
+      {% for group_title, links in menu %}
+        {% for endpoint, icon, label, badge in links %}
+          <a href="{{ url_for(endpoint) }}" class="admin-nav {% if request.endpoint == endpoint %}is-active{% endif %}">
+            <i data-lucide="{{ icon }}"></i>{{ label }}
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+
+    <main class="flex-1 p-5 lg:p-8">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}<script id="flash-data" type="application/json">{{ messages | tojson_safe }}</script>{% endif %}
+{% endwith %}
+
+<script>window.CSRF_TOKEN = "{{ csrf_token() }}";</script>
+<script src="{{ url_for('static', filename='vendor/lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/alpine-collapse.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/alpine.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/notyf.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/sortable.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chart.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/easymde.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

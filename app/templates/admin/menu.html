@@ -1,0 +1,336 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Меню сайта{% endblock %}
+{% block heading %}Меню сайта{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Навигация в шапке, подвале и блоке быстрых ссылок</p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('public.index') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+    <i data-lucide="external-link"></i><span class="hidden sm:inline">На сайте</span>
+  </a>
+  <button type="button" x-data @click="$dispatch('menu-new')" class="btn btn-primary btn-sm">
+    <i data-lucide="plus"></i><span class="hidden sm:inline">Новый пункт</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set locations = [
+  ('header', 'Шапка сайта', 'panel-top', 'Основная навигация рядом с логотипом'),
+  ('footer', 'Подвал', 'panel-bottom', 'Служебные ссылки в нижней строке'),
+  ('quick', 'Быстрые ссылки', 'zap', 'Резервный блок для точечных ссылок')
+] %}
+
+{% set blank = {
+  'id': '', 'location': 'header',
+  'title_ru': '', 'title_kk': '', 'title_en': '',
+  'url': '/', 'icon': '', 'is_external': false, 'is_active': true, 'position': 1
+} %}
+
+{% set url_presets = [
+  ('/services', 'Каталог сервисов'), ('/courses', 'Обучение'), ('/news', 'Новости'),
+  ('/faq', 'Вопросы'), ('/about', 'О платформе'), ('/support', 'Поддержка'),
+  ('https://ccu.edu.kz', 'Сайт колледжа')
+] %}
+
+<div x-data='menuEditor({{ blank | tojson }})' @menu-new.window="startNew()">
+
+  <div class="grid lg:grid-cols-12 gap-6 items-start">
+
+    {# ══════════════════ СПИСКИ ПО РАЗМЕЩЕНИЮ ══════════════════ #}
+    <div class="lg:col-span-7 xl:col-span-8 space-y-5">
+      {% for code, title, icon, hint in locations %}
+        {% set rows = groups.get(code) or [] %}
+        <section class="card p-5">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="flex items-start gap-3 min-w-0">
+              <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+                    style="background:var(--brand-50);color:var(--brand)">
+                <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+              </span>
+              <div class="min-w-0">
+                <h2 class="font-display font-bold text-base">{{ title }}</h2>
+                <p class="text-xs ink-muted mt-0.5">{{ hint }}</p>
+              </div>
+            </div>
+            <button type="button" @click="startNew('{{ code }}')"
+                    class="btn btn-ghost btn-sm flex-none" aria-label="Добавить пункт в раздел «{{ title }}»">
+              <i data-lucide="plus"></i><span class="hidden sm:inline">Пункт</span>
+            </button>
+          </div>
+
+          {% if rows %}
+            <div data-sortable="menu" class="space-y-2">
+              {% for item in rows %}
+                <div data-id="{{ item.id }}"
+                     class="flex items-center gap-3 rounded-xl border p-3 transition-colors"
+                     :class="isEditing({{ item.id }}) ? 'ring-2' : ''"
+                     :style="isEditing({{ item.id }}) ? 'border-color:var(--brand);--tw-ring-color:color-mix(in srgb,var(--brand) 22%,transparent)' : ''"
+                     style="border-color:var(--line);background:var(--surface)">
+
+                  <span class="drag-handle flex-none" aria-label="Перетащить">
+                    <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                  </span>
+
+                  <span class="grid place-items-center w-8 h-8 rounded-lg flex-none"
+                        style="background:var(--surface-2);color:var(--ink-3)">
+                    <i data-lucide="{{ item.icon or 'link' }}" class="w-4 h-4"></i>
+                  </span>
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-semibold truncate">{{ item.title_ru }}</span>
+                    <span class="block text-[11px] ink-muted truncate font-mono">{{ item.url }}</span>
+                  </span>
+
+                  <span class="hidden sm:flex items-center gap-1.5 flex-none">
+                    {% if item.is_external %}
+                      <span class="badge badge-sky"><i data-lucide="external-link" class="w-3 h-3"></i>Внешняя</span>
+                    {% endif %}
+                    {% if not item.is_active %}
+                      <span class="badge badge-rose"><i data-lucide="eye-off" class="w-3 h-3"></i>Скрыт</span>
+                    {% endif %}
+                  </span>
+
+                  <span class="flex items-center gap-1 flex-none">
+                    <button type="button" class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                            style="color:var(--ink-3)" aria-label="Изменить пункт меню"
+                            @click='edit({{ {
+                              "id": item.id, "location": item.location,
+                              "title_ru": item.title_ru, "title_kk": item.title_kk, "title_en": item.title_en,
+                              "url": item.url, "icon": item.icon,
+                              "is_external": item.is_external, "is_active": item.is_active,
+                              "position": item.position
+                            } | tojson }})'>
+                      <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+                    <form method="post" action="{{ url_for('admin.menu_delete', item_id=item.id) }}"
+                          data-confirm="Удалить пункт «{{ item.title_ru }}»?">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="w-8 h-8 grid place-items-center rounded-lg transition-colors hover:bg-[var(--brand-50)]"
+                              style="color:var(--ink-3)" aria-label="Удалить пункт меню">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </form>
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="rounded-xl border border-dashed p-8 text-center" style="border-color:var(--line-strong)">
+              <i data-lucide="list-x" class="w-7 h-7 mx-auto mb-2" style="color:var(--ink-4)"></i>
+              <p class="text-sm ink-muted">
+                {% if code == 'header' %}
+                  Пунктов нет — в шапке покажется стандартный набор ссылок
+                {% else %}
+                  Пунктов нет — блок не отображается
+                {% endif %}
+              </p>
+              <button type="button" @click="startNew('{{ code }}')" class="btn btn-soft btn-sm mt-4">
+                <i data-lucide="plus"></i> Добавить пункт
+              </button>
+            </div>
+          {% endif %}
+        </section>
+      {% endfor %}
+    </div>
+
+    {# ══════════════════ ФОРМА ══════════════════ #}
+    <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-24">
+      <form id="menu-form" method="post" action="{{ url_for('admin.menu') }}"
+            class="card p-5" @submit="guard($event)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" :value="form.id">
+
+        <div class="flex items-center justify-between gap-3 mb-5">
+          <h2 class="font-display font-bold text-base" x-text="isEdit ? 'Изменить пункт' : 'Новый пункт'"></h2>
+          <button type="button" x-show="isEdit" x-cloak @click="startNew()"
+                  class="text-xs font-bold" style="color:var(--brand)">Отменить</button>
+        </div>
+
+        <div class="mb-4">
+          <label class="label" for="menu-location">Размещение</label>
+          <select id="menu-location" name="location" class="field" x-model="form.location">
+            {% for code, title, icon, hint in locations %}
+              <option value="{{ code }}">{{ title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Языковые вкладки #}
+        <div data-tabs="lang">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="label !mb-0">Название пункта</span>
+            <div class="flex items-center gap-1.5" role="group" aria-label="Язык содержимого">
+              {% for code, label, full in [('ru', 'Рус', 'русском'), ('kk', 'Қаз', 'казахском'), ('en', 'Eng', 'английском')] %}
+                <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                        data-tab="{{ code }}" aria-label="Показать поле на {{ full }}">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% for code, full, hint in [
+            ('ru', 'русском', 'Обязательно — запасной вариант для других языков'),
+            ('kk', 'казахском', 'Если пусто, покажем русский вариант'),
+            ('en', 'английском', 'Если пусто, покажем русский вариант')
+          ] %}
+            <div data-panel="{{ code }}">
+              <label class="label sr-only" for="menu-title-{{ code }}">Название на {{ full }}</label>
+              <input id="menu-title-{{ code }}" name="title_{{ code }}" type="text" class="field"
+                     x-model="form.title_{{ code }}"
+                     placeholder="{{ 'Сервисы' if code == 'ru' else ('Сервистер' if code == 'kk' else 'Services') }}"
+                     {% if code == 'ru' %}required{% endif %}>
+              <p class="help">{{ hint }}</p>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-5 pt-5 border-t space-y-4" style="border-color:var(--line)">
+          <div>
+            <label class="label" for="menu-url">Адрес</label>
+            <input id="menu-url" name="url" type="text" class="field font-mono !text-[13px]"
+                   x-model="form.url" @input="syncExternal()" placeholder="/services" required>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              {% for url, label in url_presets %}
+                <button type="button" class="chip !px-2.5 !py-1 !text-[11px]"
+                        @click="form.url = '{{ url }}'; syncExternal()">{{ label }}</button>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div>
+            <label class="label" for="menu-icon">Иконка</label>
+            <div class="flex items-center gap-3">
+              <span id="menu-icon-preview" class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                    style="background:var(--brand-50);color:var(--brand)">
+                <i data-lucide="link" class="w-5 h-5"></i>
+              </span>
+              <input id="menu-icon" name="icon" type="text" class="field flex-1 font-mono !text-[13px]"
+                     x-model="form.icon" @input="syncIcon()" placeholder="layout-grid">
+            </div>
+            <p class="help">Название иконки из набора Lucide. Пусто — покажем звено цепи</p>
+          </div>
+
+          <div>
+            <label class="label" for="menu-position">Порядок</label>
+            <input id="menu-position" name="position" type="number" min="0" class="field"
+                   x-model="form.position">
+          </div>
+
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <span class="switch">
+              <input type="checkbox" name="is_external" x-model="form.is_external">
+              <span></span>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">Внешняя ссылка</span>
+              <span class="block text-[11px] ink-muted">Откроется в новой вкладке</span>
+            </span>
+          </label>
+
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <span class="switch">
+              <input type="checkbox" name="is_active" x-model="form.is_active">
+              <span></span>
+            </span>
+            <span class="text-sm font-semibold">Показывать пункт</span>
+          </label>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-5">
+          <i data-lucide="check"></i>
+          <span x-text="isEdit ? 'Сохранить изменения' : 'Добавить пункт'"></span>
+        </button>
+      </form>
+
+      <div class="card p-5 mt-4">
+        <h3 class="font-display font-bold text-sm mb-2.5 flex items-center gap-2">
+          <i data-lucide="info" class="w-4 h-4" style="color:var(--brand)"></i>
+          Как это работает
+        </h3>
+        <ul class="text-xs ink-muted space-y-1.5 leading-relaxed">
+          <li>Если в шапке нет ни одного пункта, показывается стандартный набор ссылок.</li>
+          <li>Внутренние адреса начинаются со слэша: <code class="font-mono">/services</code>.</li>
+          <li>Скрытые пункты остаются в базе, но не видны посетителям.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('menuEditor', (blank) => ({
+      blank: blank,
+      form: Object.assign({}, blank),
+
+      get isEdit() { return String(this.form.id || '') !== ''; },
+      isEditing(id) { return String(this.form.id || '') === String(id); },
+
+      /* Переносит выбранный пункт в форму */
+      edit(data) {
+        this.form = Object.assign({}, this.blank, data || {});
+        this.afterFill();
+      },
+
+      /* Сбрасывает форму; location задаётся кнопкой нужного раздела */
+      startNew(location) {
+        this.form = Object.assign({}, this.blank);
+        if (location) this.form.location = location;
+        this.afterFill();
+      },
+
+      afterFill() {
+        this.$nextTick(() => {
+          this.syncIcon();
+          const card = document.getElementById('menu-form');
+          if (card && window.matchMedia('(max-width: 1023px)').matches) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+          if (tab) tab.click();
+          const first = document.getElementById('menu-title-ru');
+          if (first) first.focus({ preventScroll: true });
+        });
+      },
+
+      /* Адрес с протоколом — почти всегда внешняя ссылка */
+      syncExternal() {
+        this.form.is_external = /^https?:\/\//i.test(String(this.form.url || ''));
+      },
+
+      /* Живой предпросмотр иконки Lucide */
+      syncIcon() {
+        const box = document.getElementById('menu-icon-preview');
+        if (!box) return;
+        const name = String(this.form.icon || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || 'link';
+        box.innerHTML = '<i data-lucide="' + name + '" class="w-5 h-5"></i>';
+        try { if (window.lucide) window.lucide.createIcons(); } catch (e) { /* имя не найдено */ }
+        if (box.querySelector('i[data-lucide]')) {
+          box.innerHTML = '<i data-lucide="link" class="w-5 h-5"></i>';
+          if (window.lucide) window.lucide.createIcons();
+        }
+      },
+
+      /* Не отправляем форму без названия и адреса */
+      guard(event) {
+        const noTitle = !String(this.form.title_ru || '').trim();
+        const noUrl = !String(this.form.url || '').trim();
+        if (!noTitle && !noUrl) return;
+        event.preventDefault();
+        if (noTitle) {
+          const tab = document.querySelector('[data-tabs="lang"] [data-tab="ru"]');
+          if (tab) tab.click();
+          document.getElementById('menu-title-ru').focus();
+          if (window.hubToast) window.hubToast('Введите название на русском', 'error');
+          return;
+        }
+        document.getElementById('menu-url').focus();
+        if (window.hubToast) window.hubToast('Укажите адрес ссылки', 'error');
+      },
+    }));
+  });
+</script>
+{% endblock %}

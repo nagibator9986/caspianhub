@@ -1,0 +1,24 @@
+{# Заголовок секции. Параметры: eyebrow, title, subtitle, center (bool), link, link_text #}
+{% set center = center | default(true) %}
+<div class="{{ 'text-center max-w-2xl mx-auto' if center else 'flex flex-wrap items-end justify-between gap-6' }} mb-12">
+  <div class="{{ '' if center else 'max-w-2xl' }}">
+    {% if eyebrow %}
+      <span class="badge badge-brand mb-4 reveal">
+        {% if eyebrow_icon %}<i data-lucide="{{ eyebrow_icon }}" class="w-3.5 h-3.5"></i>{% endif %}
+        {{ eyebrow }}
+      </span>
+    {% endif %}
+    <h2 class="font-display text-3xl sm:text-4xl font-extrabold leading-[1.15] reveal" data-reveal-delay="60">
+      {{ title }}
+    </h2>
+    {% if subtitle %}
+      <p class="mt-4 text-base ink-muted leading-relaxed reveal" data-reveal-delay="120">{{ subtitle }}</p>
+    {% endif %}
+  </div>
+  {% if link and not center %}
+    <a href="{{ link }}" class="btn btn-ghost btn-sm reveal flex-none" data-reveal-delay="160">
+      {{ link_text or t('action.details') }}
+      <i data-lucide="arrow-right"></i>
+    </a>
+  {% endif %}
+</div>

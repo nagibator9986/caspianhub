@@ -1,0 +1,569 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}{{ t('acc.profile') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Ваши личные данные, фотография, учебная группа, специальность, язык интерфейса и смена пароля — всё в одном месте.{% endblock %}
+
+{% block content %}
+
+{% set specialties = [
+  'Маркетинг',
+  'Менеджмент',
+  'Учёт и аудит',
+  'Гостиничный бизнес',
+  'Туризм',
+  'Правоведение',
+  'Переводческое дело',
+  'Программное обеспечение'
+] %}
+
+{% set done_lessons = current_user.progress | selectattr('completed') | list | length %}
+{% set certs_count = current_user.certificates | length %}
+{% set favs_count = current_user.favorites | length %}
+{% set role_label = 'Администратор' if current_user.role == 'admin' else ('Редактор' if current_user.role == 'editor' else 'Студент') %}
+{% set role_icon = 'shield' if current_user.role == 'admin' else ('pen-tool' if current_user.role == 'editor' else 'graduation-cap') %}
+{% set contact_email = setting('contact_email', 'info@ccu.edu.kz') %}
+{% set profile_filled = (current_user.full_name and current_user.group_name and current_user.specialty and current_user.bio) %}
+
+{# ══════════════════════ ШАПКА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-10 lg:pb-12">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <a href="{{ url_for('account.dashboard') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.account') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('acc.profile') }}</span>
+    </nav>
+
+    <div class="flex flex-wrap items-end justify-between gap-6">
+      <div class="min-w-0 animate-fade-up">
+        <span class="badge badge-brand">
+          <i data-lucide="user-round-cog" class="w-3 h-3"></i>
+          Личные данные
+        </span>
+
+        <h1 class="font-display text-[1.9rem] sm:text-4xl font-extrabold leading-[1.1] mt-3">
+          {{ t('acc.profile') }}
+        </h1>
+
+        <p class="text-sm ink-muted mt-3 leading-relaxed max-w-2xl">
+          {% if profile_filled %}
+            Профиль заполнен — имя отсюда попадает в сертификаты, а язык применяется ко всему сайту.
+            Данные можно поменять в любой момент.
+          {% else %}
+            Заполните профиль: имя попадёт в ваши сертификаты, а группа и специальность помогут
+            нам подсказывать подходящие курсы и сервисы.
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5 animate-fade-up" style="animation-delay:.12s">
+        <a href="{{ url_for('account.dashboard') }}" class="btn btn-ghost">
+          <i data-lucide="layout-dashboard"></i>
+          В кабинет
+        </a>
+        <a href="{{ url_for('public.support') }}" class="btn btn-soft">
+          <i data-lucide="life-buoy"></i>
+          Поддержка
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ══════════════════════ ВКЛАДКИ КАБИНЕТА ══════════════════════ #}
+{% set acc_tabs = [
+  ('account.dashboard', 'layout-dashboard', 'Обзор'),
+  ('account.learning', 'graduation-cap', t('acc.my_courses')),
+  ('account.favorites', 'heart', t('acc.favorites')),
+  ('account.certificates', 'award', t('acc.certificates')),
+  ('account.profile', 'user-round', t('acc.profile')),
+] %}
+
+<div class="sticky top-[4.5rem] z-30 border-y backdrop-blur"
+     style="border-color:var(--line);background:color-mix(in srgb,var(--bg) 88%,transparent)">
+  <div class="container-hub">
+    <nav class="flex items-center gap-2 overflow-x-auto py-3 -mx-1 px-1" aria-label="Разделы кабинета">
+      {% for endpoint, icon, label in acc_tabs %}
+        {% set is_current = request.endpoint == endpoint %}
+        <a href="{{ url_for(endpoint) }}"
+           class="chip flex-none {{ 'is-active' if is_current else '' }}"
+           {% if is_current %}aria-current="page"{% endif %}>
+          <i data-lucide="{{ icon }}" class="w-3.5 h-3.5"></i>
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+  </div>
+</div>
+
+{# ══════════════════════ ОСНОВНАЯ СЕТКА ══════════════════════ #}
+<section class="container-hub pt-10 lg:pt-14 pb-20 lg:pb-24">
+  <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+
+    {# ─────────── ЛЕВАЯ КОЛОНКА: КАРТОЧКА ПОЛЬЗОВАТЕЛЯ ─────────── #}
+    <aside class="lg:col-span-4 lg:sticky lg:top-[9.5rem] space-y-6">
+
+      <div class="card svc-card p-7 text-center reveal" style="--glow:var(--brand)">
+
+        <div class="relative inline-block">
+          <img id="profile-avatar-image"
+               src="{{ url_for('static', filename=current_user.avatar) if current_user.avatar else '' }}"
+               data-initial-src="{{ url_for('static', filename=current_user.avatar) if current_user.avatar else '' }}"
+               alt="Фотография профиля"
+               class="w-28 h-28 rounded-3xl object-cover shadow-card border mx-auto"
+               style="border-color:var(--line)"
+               {% if not current_user.avatar %}hidden{% endif %}>
+
+          <span id="profile-avatar-initials"
+                class="grid place-items-center w-28 h-28 rounded-3xl mx-auto font-display font-extrabold text-4xl text-white shadow-brand"
+                style="background:linear-gradient(135deg,var(--brand),var(--brand-2))"
+                aria-hidden="true"
+                {% if current_user.avatar %}hidden{% endif %}>{{ current_user.initials }}</span>
+
+          <span class="absolute -bottom-1 -right-1 grid place-items-center w-9 h-9 rounded-xl border-2"
+                style="background:var(--surface);border-color:var(--bg);color:var(--brand)"
+                aria-hidden="true">
+            <i data-lucide="{{ role_icon }}" class="w-4 h-4"></i>
+          </span>
+        </div>
+
+        <h2 class="font-display font-extrabold text-xl leading-snug mt-5 break-words">
+          {{ current_user.full_name or 'Без имени' }}
+        </h2>
+
+        <p class="text-sm ink-muted mt-1.5 break-all">{{ current_user.email }}</p>
+
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <span class="badge badge-brand">
+            <i data-lucide="{{ role_icon }}" class="w-3 h-3"></i>
+            {{ role_label }}
+          </span>
+          {% if current_user.group_name %}
+            <span class="badge badge-slate">
+              <i data-lucide="users" class="w-3 h-3"></i>
+              {{ current_user.group_name }}
+            </span>
+          {% endif %}
+          {% if current_user.specialty %}
+            <span class="badge badge-sky">
+              <i data-lucide="briefcase" class="w-3 h-3"></i>
+              {{ current_user.specialty }}
+            </span>
+          {% endif %}
+        </div>
+
+        {% if current_user.bio %}
+          <p class="text-sm leading-relaxed mt-5 pt-5 border-t text-left"
+             style="border-color:var(--line);color:var(--ink-2)">{{ current_user.bio }}</p>
+        {% endif %}
+
+        <dl class="grid grid-cols-2 gap-3 mt-6 text-left">
+          <div class="rounded-xl border px-3.5 py-3" style="border-color:var(--line);background:var(--surface-2)">
+            <dt class="text-[11px] font-semibold ink-muted flex items-center gap-1.5">
+              <i data-lucide="book-open-check" class="w-3.5 h-3.5"></i>
+              Уроков пройдено
+            </dt>
+            <dd class="font-display font-extrabold text-2xl mt-1.5">{{ done_lessons }}</dd>
+          </div>
+          <div class="rounded-xl border px-3.5 py-3" style="border-color:var(--line);background:var(--surface-2)">
+            <dt class="text-[11px] font-semibold ink-muted flex items-center gap-1.5">
+              <i data-lucide="award" class="w-3.5 h-3.5"></i>
+              Сертификатов
+            </dt>
+            <dd class="font-display font-extrabold text-2xl mt-1.5">{{ certs_count }}</dd>
+          </div>
+        </dl>
+
+        <ul class="mt-6 pt-6 border-t space-y-2.5 text-left text-[12px]" style="border-color:var(--line)">
+          <li class="flex items-center gap-2.5">
+            <i data-lucide="calendar-plus" class="w-3.5 h-3.5 flex-none" style="color:var(--ink-4)"></i>
+            <span class="ink-muted">С нами с</span>
+            <span class="font-semibold ml-auto">{{ current_user.created_at | date_ru }}</span>
+          </li>
+          {% if current_user.last_seen %}
+            <li class="flex items-center gap-2.5">
+              <i data-lucide="clock" class="w-3.5 h-3.5 flex-none" style="color:var(--ink-4)"></i>
+              <span class="ink-muted">Последний визит</span>
+              <span class="font-semibold ml-auto">{{ current_user.last_seen | dt('%d.%m.%Y, %H:%M') }}</span>
+            </li>
+          {% endif %}
+          <li class="flex items-center gap-2.5">
+            <i data-lucide="languages" class="w-3.5 h-3.5 flex-none" style="color:var(--ink-4)"></i>
+            <span class="ink-muted">Язык интерфейса</span>
+            <span class="font-semibold ml-auto">{{ LANGUAGES.get(current_user.locale, LANGUAGES.get('ru', 'Русский')) }}</span>
+          </li>
+          <li class="flex items-center gap-2.5">
+            <i data-lucide="heart" class="w-3.5 h-3.5 flex-none" style="color:var(--ink-4)"></i>
+            <span class="ink-muted">В избранном</span>
+            <span class="font-semibold ml-auto">
+              {{ favs_count }} {{ favs_count | plural('сервис', 'сервиса', 'сервисов') }}
+            </span>
+          </li>
+        </ul>
+
+        <a href="{{ url_for('account.certificates') }}" class="btn btn-ghost btn-sm btn-block mt-6">
+          <i data-lucide="award"></i>
+          {{ t('acc.certificates') }}
+        </a>
+      </div>
+
+      {% if current_user.is_staff %}
+        <div class="card p-5 flex items-start gap-3.5 reveal" data-reveal-delay="80">
+          <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="settings-2" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm">У вас есть доступ к админке</p>
+            <p class="text-[12px] ink-muted mt-1 leading-relaxed">
+              Контент сайта, сервисы и курсы редактируются в панели управления.
+            </p>
+            <a href="{{ url_for('admin.dashboard') }}"
+               class="text-[12px] font-semibold inline-flex items-center gap-1.5 mt-2.5 hover:underline"
+               style="color:var(--brand)">
+              Открыть панель
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </aside>
+
+    {# ─────────── ПРАВАЯ КОЛОНКА: ФОРМЫ ─────────── #}
+    <div class="lg:col-span-8 space-y-6">
+
+      {# ═══ Форма 1: данные профиля ═══ #}
+      <div class="card p-6 sm:p-8 reveal">
+        <div class="flex items-start gap-4 mb-7">
+          <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="id-card" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-bold text-xl leading-snug">Данные профиля</h2>
+            <p class="text-sm ink-muted mt-1.5 leading-relaxed">
+              Фотография, имя и учебные данные. Имя из этого поля печатается в сертификатах —
+              укажите его так, как оно должно выглядеть в документе.
+            </p>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('account.profile') }}"
+              enctype="multipart/form-data" class="space-y-6" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="profile">
+
+          {# ── Аватар ── #}
+          <div class="rounded-2xl border p-5" style="border-color:var(--line);background:var(--surface-2)">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+
+              <div class="flex-none mx-auto sm:mx-0">
+                <img id="avatar-preview-image"
+                     src="{{ url_for('static', filename=current_user.avatar) if current_user.avatar else '' }}"
+                     data-initial-src="{{ url_for('static', filename=current_user.avatar) if current_user.avatar else '' }}"
+                     alt="Предпросмотр фотографии профиля"
+                     class="w-20 h-20 rounded-2xl object-cover border shadow-soft"
+                     style="border-color:var(--line)"
+                     {% if not current_user.avatar %}hidden{% endif %}>
+                <span id="avatar-preview-initials"
+                      class="grid place-items-center w-20 h-20 rounded-2xl font-display font-extrabold text-2xl text-white shadow-brand"
+                      style="background:linear-gradient(135deg,var(--brand),var(--brand-2))"
+                      aria-hidden="true"
+                      {% if current_user.avatar %}hidden{% endif %}>{{ current_user.initials }}</span>
+              </div>
+
+              <div class="min-w-0 flex-1 text-center sm:text-left">
+                <label class="label" for="avatar-input">Фотография профиля</label>
+
+                <input type="file" id="avatar-input" name="avatar"
+                       accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                       class="sr-only"
+                       data-avatar-input
+                       aria-describedby="avatar-help">
+
+                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mt-1">
+                  <label for="avatar-input" class="btn btn-ghost btn-sm cursor-pointer">
+                    <i data-lucide="upload"></i>
+                    Выбрать файл
+                  </label>
+                  <button type="button" class="btn btn-ghost btn-sm" data-avatar-reset hidden>
+                    <i data-lucide="rotate-ccw"></i>
+                    Отменить выбор
+                  </button>
+                  <span class="text-[12px] font-semibold truncate max-w-[14rem]"
+                        style="color:var(--ink-3)" data-avatar-name aria-live="polite">
+                    {% if current_user.avatar %}Файл уже загружен{% else %}Файл не выбран{% endif %}
+                  </span>
+                </div>
+
+                <p class="help" id="avatar-help">
+                  PNG, JPG, WEBP, GIF или SVG, до 16 МБ. Лучше всего смотрится квадратное изображение.
+                  Если фото нет — покажем ваши инициалы.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {# ── ФИО ── #}
+          <div>
+            <label class="label" for="profile-name">Фамилия и имя</label>
+            <div class="relative">
+              <i data-lucide="user-round" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                 style="color:var(--ink-4)"></i>
+              <input class="field !pl-11" type="text" id="profile-name" name="full_name"
+                     value="{{ current_user.full_name or '' }}"
+                     maxlength="160" autocomplete="name"
+                     placeholder="Например, Айгерим Сериккызы"
+                     aria-describedby="profile-name-help">
+            </div>
+            <p class="help" id="profile-name-help">Так вас видят преподаватели, и точно так же имя попадёт в сертификат.</p>
+          </div>
+
+          {# ── Группа и специальность ── #}
+          <div class="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label class="label" for="profile-group">Учебная группа</label>
+              <div class="relative">
+                <i data-lucide="users" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11" type="text" id="profile-group" name="group_name"
+                       value="{{ current_user.group_name or '' }}"
+                       maxlength="60" autocomplete="off" placeholder="ПО-21"
+                       aria-describedby="profile-group-help">
+              </div>
+              <p class="help" id="profile-group-help">Необязательно — но с группой удобнее искать одногруппников.</p>
+            </div>
+
+            <div>
+              <label class="label" for="profile-specialty">Специальность</label>
+              <select class="field" id="profile-specialty" name="specialty" aria-describedby="profile-specialty-help">
+                <option value="">Не выбрана</option>
+                {% for item in specialties %}
+                  <option value="{{ item }}" {% if current_user.specialty == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+                {% if current_user.specialty and current_user.specialty not in specialties %}
+                  <option value="{{ current_user.specialty }}" selected>{{ current_user.specialty }}</option>
+                {% endif %}
+              </select>
+              <p class="help" id="profile-specialty-help">Подскажем курсы и сервисы под ваше направление.</p>
+            </div>
+          </div>
+
+          {# ── О себе ── #}
+          <div>
+            <label class="label" for="profile-bio">О себе</label>
+            <textarea class="field" id="profile-bio" name="bio" rows="4" maxlength="1000"
+                      placeholder="Пара строк о себе: чем увлекаетесь, над чем работаете, что хотите освоить."
+                      aria-describedby="profile-bio-help">{{ current_user.bio or '' }}</textarea>
+            <p class="help" id="profile-bio-help">До 1000 символов. Видно только вам и администраторам платформы.</p>
+          </div>
+
+          {# ── Язык интерфейса ── #}
+          <div>
+            <label class="label" for="profile-locale">Язык интерфейса</label>
+            <select class="field" id="profile-locale" name="locale" aria-describedby="profile-locale-help">
+              {% for code, label in LANGUAGES.items() %}
+                <option value="{{ code }}" {% if current_user.locale == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <p class="help" id="profile-locale-help">Применится сразу после сохранения — ко всем страницам сайта.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2 border-t" style="border-color:var(--line)">
+            <button type="submit" class="btn btn-primary magnetic mt-5">
+              <i data-lucide="check"></i>
+              {{ t('action.save') }}
+            </button>
+            <p class="text-[12px] ink-muted mt-5">Изменения вступят в силу сразу — перезаходить не нужно.</p>
+          </div>
+        </form>
+      </div>
+
+      {# ═══ Форма 2: смена пароля ═══ #}
+      <div class="card p-6 sm:p-8 reveal" data-reveal-delay="80">
+        <div class="flex items-start gap-4 mb-7">
+          <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                style="background:rgba(14,165,233,.12);color:#0369A1">
+            <i data-lucide="key-round" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-bold text-xl leading-snug">Смена пароля</h2>
+            <p class="text-sm ink-muted mt-1.5 leading-relaxed">
+              Чтобы задать новый пароль, подтвердите текущий. После сохранения вход в кабинет
+              будет только по новому паролю.
+            </p>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('account.profile') }}" class="space-y-5">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="password">
+
+          <div>
+            <label class="label" for="pwd-current">Текущий пароль</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                 style="color:var(--ink-4)"></i>
+              <input class="field !pl-11" type="password" id="pwd-current" name="current_password"
+                     required maxlength="128" autocomplete="current-password"
+                     placeholder="Пароль, с которым вы вошли"
+                     aria-describedby="pwd-current-help">
+            </div>
+            <p class="help" id="pwd-current-help">Нужен, чтобы никто посторонний не сменил пароль с вашего устройства.</p>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label class="label" for="pwd-new">Новый пароль</label>
+              <div class="relative">
+                <i data-lucide="lock-keyhole" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11" type="password" id="pwd-new" name="new_password"
+                       required minlength="6" maxlength="128" autocomplete="new-password"
+                       placeholder="Не короче 6 символов"
+                       aria-describedby="pwd-new-help">
+              </div>
+              <p class="help" id="pwd-new-help">Надёжнее, если есть цифры и буквы разного регистра.</p>
+            </div>
+
+            <div>
+              <label class="label" for="pwd-new2">Повторите новый пароль</label>
+              <div class="relative">
+                <i data-lucide="shield-check" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11" type="password" id="pwd-new2" name="new_password2"
+                       required minlength="6" maxlength="128" autocomplete="new-password"
+                       placeholder="Ещё раз, чтобы не ошибиться"
+                       aria-describedby="pwd-new2-help">
+              </div>
+              <p class="help" id="pwd-new2-help">Пароли должны совпадать.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-4 border-t" style="border-color:var(--line)">
+            <button type="submit" class="btn btn-ghost">
+              <i data-lucide="key-round"></i>
+              Изменить пароль
+            </button>
+            <p class="text-[12px] ink-muted">Забыли текущий пароль? Напишите нам — поможем восстановить доступ.</p>
+          </div>
+        </form>
+      </div>
+
+      {# ═══ Опасная зона ═══ #}
+      <div class="rounded-2xl border p-6 sm:p-7 reveal" data-reveal-delay="140"
+           style="border-color:var(--line);background:var(--surface-2)">
+        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+          <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                style="background:rgba(244,63,94,.11);color:#BE123C">
+            <i data-lucide="triangle-alert" class="w-5 h-5"></i>
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <h2 class="font-display font-bold text-lg leading-snug">Опасная зона</h2>
+            <p class="text-sm ink-muted mt-2 leading-relaxed">
+              Удалить аккаунт самостоятельно нельзя — так мы защищаем ваши сертификаты и прогресс
+              от случайной потери. Если аккаунт всё же нужно закрыть, напишите в поддержку:
+              мы проверим, что запрос от вас, и удалим профиль вместе со всеми данными.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-3 mt-5">
+              <a href="{{ url_for('public.support') }}" class="btn btn-ghost btn-sm">
+                <i data-lucide="life-buoy"></i>
+                Написать в поддержку
+              </a>
+              <a href="mailto:{{ contact_email }}"
+                 class="text-[12px] font-semibold inline-flex items-center gap-1.5 hover:underline"
+                 style="color:var(--ink-3)">
+                <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                {{ contact_email }}
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var input = document.querySelector('[data-avatar-input]');
+    if (!input) return;
+
+    var resetBtn = document.querySelector('[data-avatar-reset]');
+    var nameEl = document.querySelector('[data-avatar-name]');
+    var previews = [
+      { img: document.getElementById('avatar-preview-image'), fallback: document.getElementById('avatar-preview-initials') },
+      { img: document.getElementById('profile-avatar-image'), fallback: document.getElementById('profile-avatar-initials') }
+    ];
+    var objectUrl = null;
+
+    function paint(src) {
+      previews.forEach(function (pair) {
+        if (!pair.img || !pair.fallback) return;
+        if (src) {
+          pair.img.src = src;
+          pair.img.hidden = false;
+          pair.fallback.hidden = true;
+        } else {
+          pair.img.removeAttribute('src');
+          pair.img.hidden = true;
+          pair.fallback.hidden = false;
+        }
+      });
+    }
+
+    function release() {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+    }
+
+    function restore() {
+      release();
+      var original = previews[0].img ? (previews[0].img.getAttribute('data-initial-src') || '') : '';
+      paint(original);
+      if (nameEl) nameEl.textContent = original ? 'Файл уже загружен' : 'Файл не выбран';
+      if (resetBtn) resetBtn.hidden = true;
+    }
+
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      if (!file) { restore(); return; }
+
+      if (!/^image\//.test(file.type)) {
+        input.value = '';
+        restore();
+        if (nameEl) nameEl.textContent = 'Нужен файл-изображение';
+        return;
+      }
+
+      release();
+      objectUrl = URL.createObjectURL(file);
+      paint(objectUrl);
+      if (nameEl) nameEl.textContent = file.name;
+      if (resetBtn) resetBtn.hidden = false;
+    });
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        input.value = '';
+        restore();
+      });
+    }
+
+    window.addEventListener('beforeunload', release);
+  })();
+</script>
+{% endblock %}

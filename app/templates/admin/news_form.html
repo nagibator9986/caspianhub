@@ -1,0 +1,296 @@
+{% extends 'layouts/admin_base.html' %}
+
+{# ────────────────────────────────────────────────────────────────────────────
+   Форма создания и редактирования записи ленты новостей.
+   Контекст: item (News или None) — маршрут admin.news_edit.
+   В полях ввода намеренно используются прямые поля _ru/_kk/_en — иначе
+   отредактировать каждый язык отдельно невозможно. Для готового текста
+   (заголовок страницы, подписи, подтверждение удаления) — .tr('поле').
+   ──────────────────────────────────────────────────────────────────────── #}
+
+{% block title %}{{ 'Редактирование записи' if item else 'Новая запись' }}{% endblock %}
+
+{% block heading %}{{ item.tr('title') if item else 'Новая запись' }}{% endblock %}
+
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">
+    {% if item %}
+      {{ item.kind_label }} · <span class="font-mono">/news/{{ item.slug }}</span>
+    {% else %}
+      Заполните заголовок на русском — остальное можно дополнить позже
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.news') }}" class="btn btn-ghost btn-sm hidden sm:inline-flex">
+    <i data-lucide="arrow-left"></i><span class="hidden lg:inline">К списку</span>
+  </a>
+
+  {% if item %}
+    <a href="{{ url_for('public.news_detail', slug=item.slug) }}" target="_blank" rel="noopener"
+       class="btn btn-ghost btn-sm hidden sm:inline-flex" aria-label="Открыть запись на сайте">
+      <i data-lucide="external-link"></i><span class="hidden lg:inline">На сайте</span>
+    </a>
+
+    <form method="post" action="{{ url_for('admin.news_delete', news_id=item.id) }}"
+          data-confirm="Удалить запись «{{ item.title_ru }}» вместе с обложкой? Отменить это будет нельзя.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-sm" aria-label="Удалить запись">
+        <i data-lucide="trash-2" style="color:#E11D48"></i>
+      </button>
+    </form>
+  {% endif %}
+
+  <button type="submit" form="news-form" class="btn btn-primary btn-sm">
+    <i data-lucide="save"></i><span class="hidden sm:inline">Сохранить</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{% set langs = [('ru', 'Русский', 'RU'), ('kk', 'Қазақша', 'KK'), ('en', 'English', 'EN')] %}
+{% set kinds = [
+  ('news', 'Новость', 'newspaper', 'brand'),
+  ('update', 'Обновление', 'refresh-cw', 'sky'),
+  ('announcement', 'Объявление', 'megaphone', 'amber'),
+] %}
+{% set current_kind = (item.kind if item else '') or 'news' %}
+
+{# ══════════════════ ГЛАВНАЯ ФОРМА ══════════════════ #}
+<form id="news-form" method="post" enctype="multipart/form-data"
+      action="{{ url_for('admin.news_edit', news_id=item.id) if item else url_for('admin.news_edit') }}"
+      class="grid lg:grid-cols-12 gap-6 items-start">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# ─────────── ОСНОВНАЯ КОЛОНКА ─────────── #}
+  <div class="lg:col-span-8 space-y-6 min-w-0">
+
+    {# Языковые вкладки #}
+    <section class="card p-6" data-tabs="lang">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="languages" class="w-4 h-4"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-bold text-base leading-tight">Содержимое записи</h2>
+            <p class="text-xs ink-muted">Русская версия обязательна, остальные подставятся автоматически</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-none" role="tablist" aria-label="Язык содержимого">
+          {% for code, title, short in langs %}
+            <button type="button" class="chip !px-3.5 !py-1.5 !text-xs" data-tab="{{ code }}"
+                    role="tab" aria-label="{{ title }}">{{ short }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% for code, title, short in langs %}
+        <div data-panel="{{ code }}" class="space-y-4">
+
+          <div>
+            <label class="label" for="field-title-{{ code }}">
+              Заголовок ({{ title }})
+              {% if code == 'ru' %}
+                <span class="badge badge-brand !px-1.5 !py-0.5 !text-[10px] ml-1">обязательно</span>
+              {% endif %}
+            </label>
+            <input class="field font-display !font-bold" type="text"
+                   id="field-title-{{ code }}" name="title_{{ code }}" maxlength="240"
+                   value="{{ (item | attr('title_' ~ code)) or '' if item else '' }}"
+                   placeholder="{{ 'Открыт новый сервис для студентов' if code == 'ru' else 'Заголовок на выбранном языке' }}"
+                   {% if code == 'ru' %}data-slug-source="#field-slug" aria-required="true"{% endif %}>
+            {% if code != 'ru' %}
+              <p class="help">Оставьте пустым — читатель увидит русскую версию.</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="label" for="field-excerpt-{{ code }}">Краткое описание</label>
+            <textarea class="field !min-h-[6rem]" rows="3"
+                      id="field-excerpt-{{ code }}" name="excerpt_{{ code }}"
+                      maxlength="300" data-maxlen="300"
+                      placeholder="Две-три строки, которые появятся в карточке ленты и в поисковой выдаче">{{ (item | attr('excerpt_' ~ code)) or '' if item else '' }}</textarea>
+            <p class="help">Если оставить пустым, в карточке покажем начало текста.</p>
+          </div>
+
+          <div>
+            <label class="label" for="field-body-{{ code }}">Текст записи</label>
+            <textarea class="field" id="field-body-{{ code }}" name="body_{{ code }}"
+                      data-editor data-editor-height="480px"
+                      placeholder="Расскажите, что произошло и что это значит для студентов. Поддерживается Markdown.">{{ (item | attr('body_' ~ code)) or '' if item else '' }}</textarea>
+            <p class="help">Markdown: **жирный**, заголовки, списки, ссылки, таблицы и изображения.</p>
+          </div>
+
+        </div>
+      {% endfor %}
+    </section>
+  </div>
+
+  {# ─────────── БОКОВАЯ КОЛОНКА ─────────── #}
+  <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+
+    {# Публикация #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="rocket" class="w-4 h-4" style="color:var(--brand)"></i>Публикация
+      </h2>
+
+      <button type="submit" class="btn btn-primary btn-block">
+        <i data-lucide="save"></i>{{ 'Сохранить' if item else 'Создать запись' }}
+      </button>
+
+      <div class="mt-4">
+        <label class="label" for="field-kind">Тип записи</label>
+        <select class="field !py-2 !text-sm" id="field-kind" name="kind">
+          {% for value, label, icon, tone in kinds %}
+            <option value="{{ value }}" {% if current_kind == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="help">Определяет значок и фильтр в ленте на сайте.</p>
+      </div>
+
+      <div class="mt-4">
+        <label class="label" for="field-published-at">Дата и время публикации</label>
+        <input class="field !py-2 !text-sm" type="datetime-local"
+               id="field-published-at" name="published_at"
+               value="{{ item.published_at.strftime('%Y-%m-%dT%H:%M') if item and item.published_at else '' }}">
+        <p class="help">
+          {% if item %}
+            По этой дате запись встаёт в ленте — свежие показываем первыми.
+          {% else %}
+            Оставьте пустым — поставим текущее время.
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="mt-4 pt-4 border-t space-y-3" style="border-color:var(--line)">
+        <div class="flex items-center justify-between gap-3">
+          <label class="text-sm font-semibold leading-tight" for="field-is-published">
+            Опубликована
+            <span class="block text-[11px] font-normal ink-muted">Видна всем читателям сайта</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="field-is-published" name="is_published" value="1"
+                   {% if not item or item.is_published %}checked{% endif %}>
+            <span></span>
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-3 border-t" style="border-color:var(--line)">
+          <label class="text-sm font-semibold leading-tight" for="field-is-pinned">
+            Закреплена
+            <span class="block text-[11px] font-normal ink-muted">Останется наверху ленты</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="field-is-pinned" name="is_pinned" value="1"
+                   {% if item and item.is_pinned %}checked{% endif %}>
+            <span></span>
+          </label>
+        </div>
+      </div>
+
+      {% if item %}
+        <div class="mt-4 pt-4 border-t space-y-2.5" style="border-color:var(--line)">
+          <a href="{{ url_for('public.news_detail', slug=item.slug) }}" target="_blank" rel="noopener"
+             class="btn btn-soft btn-sm btn-block">
+            <i data-lucide="external-link"></i>Открыть на сайте
+          </a>
+          {% if not item.is_published %}
+            <p class="text-[11px] ink-muted flex items-start gap-1.5">
+              <i data-lucide="eye-off" class="w-3.5 h-3.5 flex-none mt-px"></i>
+              <span>Пока черновик — страницу видите только вы и другие сотрудники.</span>
+            </p>
+          {% endif %}
+          <div class="flex items-center justify-between text-[11px] ink-muted">
+            <span class="inline-flex items-center gap-1" title="Просмотров страницы">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i>{{ item.views or 0 }}
+              {{ (item.views or 0) | plural('просмотр', 'просмотра', 'просмотров') }}
+            </span>
+            {% if item.updated_at %}
+              <span class="inline-flex items-center gap-1" title="Последнее изменение">
+                <i data-lucide="history" class="w-3.5 h-3.5"></i>{{ item.updated_at | dt('%d.%m.%Y %H:%M') }}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# Адрес записи #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="link" class="w-4 h-4" style="color:var(--brand)"></i>Адрес записи
+      </h2>
+
+      <label class="label" for="field-slug">Ссылка (slug)</label>
+      <input class="field font-mono !text-sm !py-2" type="text" id="field-slug" name="slug" data-slugify
+             value="{{ item.slug if item else '' }}" maxlength="160"
+             placeholder="novyy-servis-dlya-studentov" autocomplete="off" spellcheck="false">
+      <p class="help">
+        {% if item %}
+          Текущий адрес — <span class="font-mono">/news/{{ item.slug }}</span>.
+          Меняйте осторожно: старые ссылки перестанут работать.
+        {% else %}
+          Латиницей, без пробелов. Оставьте пустым — соберём из заголовка.
+        {% endif %}
+      </p>
+    </section>
+
+    {# Обложка #}
+    <section class="card p-5">
+      <h2 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="image" class="w-4 h-4" style="color:var(--brand)"></i>Обложка
+      </h2>
+
+      <div id="cover-preview" class="w-full h-32 rounded-xl grid place-items-center overflow-hidden mb-2"
+           style="background:var(--surface-2);border:1px dashed var(--line-strong)">
+        {% if item and item.cover %}
+          <img src="{{ url_for('static', filename=item.cover) }}"
+               alt="Текущая обложка записи «{{ item.tr('title') }}»"
+               class="w-full h-full object-cover">
+        {% else %}
+          <span class="flex flex-col items-center gap-1.5 text-[11px] ink-muted text-center px-4">
+            <i data-lucide="image-plus" class="w-5 h-5"></i>
+            Пока без обложки — в ленте покажем значок типа записи
+          </span>
+        {% endif %}
+      </div>
+
+      <label class="label sr-only" for="field-cover">Файл обложки</label>
+      <input class="field !py-2 !text-xs" type="file" id="field-cover" name="cover"
+             accept="image/*" data-preview-for="#cover-preview">
+
+      {% if item and item.cover %}
+        <label class="flex items-center gap-2 mt-2 text-xs ink-muted cursor-pointer">
+          <input type="checkbox" name="remove_cover" value="1" class="w-4 h-4 rounded"
+                 style="accent-color:var(--brand)">
+          Удалить обложку при сохранении
+        </label>
+      {% endif %}
+
+      <p class="help">Горизонтальная картинка, JPG или PNG. Широкие файлы уменьшим автоматически.</p>
+    </section>
+  </aside>
+</form>
+{# ══════════════════ КОНЕЦ ГЛАВНОЙ ФОРМЫ ══════════════════ #}
+
+{# ══════════════════ ПОДСКАЗКА ДЛЯ НОВОЙ ЗАПИСИ ══════════════════ #}
+{% if not item %}
+  <div class="card p-5 mt-6 flex flex-wrap items-start gap-3">
+    <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+          style="background:var(--brand-50);color:var(--brand)">
+      <i data-lucide="lightbulb" class="w-4 h-4"></i>
+    </span>
+    <p class="text-sm min-w-0 flex-1" style="color:var(--ink-2)">
+      Сохраните черновик в любой момент — запись появится в ленте только после того,
+      как вы включите переключатель «Опубликована». Обложку и переводы удобно добавить позже.
+    </p>
+    <a href="{{ url_for('admin.news') }}" class="btn btn-ghost btn-sm flex-none">
+      <i data-lucide="newspaper"></i><span class="hidden sm:inline">Вся лента</span>
+    </a>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,781 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% set is_new = course is none %}
+{% set langs = [('ru', 'Русский', 'Обязательно'), ('kk', 'Қазақша', 'Необязательно'), ('en', 'English', 'Необязательно')] %}
+{% set levels = [
+  ('beginner', 'Начальный', 'Для тех, кто открывает сервис впервые'),
+  ('intermediate', 'Средний', 'Есть базовый опыт, нужны детали'),
+  ('advanced', 'Продвинутый', 'Тонкие настройки и редкие сценарии')
+] %}
+{% set quiz = course.quiz if course else none %}
+{% set question_count = (quiz.questions | length) if quiz else 0 %}
+{% set module_count = (course.modules | length) if course else 0 %}
+{% set lesson_count = course.lesson_count if course else 0 %}
+
+{% block title %}{{ course.tr('title') if course else 'Новый курс' }}{% endblock %}
+{% block heading %}{{ course.tr('title') if course else 'Новый мини-курс' }}{% endblock %}
+
+{# ══════════════════════════ ПОДЗАГОЛОВОК ══════════════════════════ #}
+{% block subheading %}
+  <nav class="flex items-center gap-1.5 text-[11px] mt-0.5 flex-wrap" aria-label="Где вы находитесь">
+    <a href="{{ url_for('admin.courses') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Курсы и уроки</a>
+    <i data-lucide="chevron-right" class="w-3 h-3 flex-none" style="color:var(--ink-4)"></i>
+    {% if course %}
+      <span class="font-semibold" style="color:var(--ink-2)">
+        {{ module_count }} {{ module_count | plural('модуль', 'модуля', 'модулей') }} ·
+        {{ lesson_count }} {{ lesson_count | plural('урок', 'урока', 'уроков') }} ·
+        {{ course.duration_min }} мин
+      </span>
+      {% if not course.is_published %}
+        <span class="badge badge-amber !py-0 !px-2 !text-[10px]">Черновик</span>
+      {% endif %}
+    {% else %}
+      <span class="ink-muted">Заполните описание и параметры — модули и уроки появятся сразу после сохранения</span>
+    {% endif %}
+  </nav>
+{% endblock %}
+
+{# ══════════════════════════ ДЕЙСТВИЯ В ШАПКЕ ══════════════════════════ #}
+{% block actions %}
+  <a href="{{ url_for('admin.courses') }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="arrow-left"></i><span class="hidden sm:inline">К списку</span>
+  </a>
+
+  {% if course %}
+    <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" target="_blank" rel="noopener"
+       class="btn btn-ghost btn-sm" title="Открыть курс на сайте в новой вкладке">
+      <i data-lucide="external-link"></i><span class="hidden sm:inline">Открыть на сайте</span>
+    </a>
+  {% endif %}
+
+  <button type="submit" form="course-form" class="btn btn-primary btn-sm">
+    <i data-lucide="save"></i><span class="hidden sm:inline">Сохранить</span>
+  </button>
+
+  {% if course %}
+    <form method="post" action="{{ url_for('admin.course_delete', course_id=course.id) }}"
+          data-confirm="Удалить курс «{{ course.tr('title') }}»? Вместе с ним исчезнут все модули, уроки, тест, прогресс студентов и выданные сертификаты. Отменить не получится.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit"
+              class="grid place-items-center w-9 h-9 rounded-xl border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+              style="border-color:var(--line);color:var(--ink-3)"
+              aria-label="Удалить курс «{{ course.tr('title') }}»" title="Удалить курс">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ══════════════════════════════════════════════════════════════════════════
+   ГЛАВНАЯ ФОРМА КУРСА
+   ══════════════════════════════════════════════════════════════════════════ #}
+<form id="course-form" method="post" enctype="multipart/form-data"
+      action="{{ url_for('admin.course_edit', course_id=course.id) if course else url_for('admin.course_edit') }}"
+      class="grid lg:grid-cols-12 gap-6 items-start">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# ─────────────── ЛЕВАЯ КОЛОНКА: ТЕКСТЫ ПО ЯЗЫКАМ ─────────────── #}
+  <div class="lg:col-span-8 min-w-0 space-y-6">
+
+    <div class="card p-5 sm:p-6" data-tabs="lang">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base flex items-center gap-2">
+            <i data-lucide="languages" class="w-4 h-4" style="color:var(--brand)"></i>Описание курса
+          </h2>
+          <p class="text-xs ink-muted mt-0.5">
+            Русский обязателен — он подставляется там, где перевода ещё нет. Казахский и английский можно добавить позже.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-1.5 p-1 rounded-xl flex-none" style="background:var(--surface-2)" role="tablist" aria-label="Язык описания">
+          {% for code, label, hint in langs %}
+            {% set filled = (course | attr('title_' ~ code)) if course else '' %}
+            <button type="button" class="chip !py-1.5 !px-3 !text-xs" data-tab="{{ code }}"
+                    aria-label="Вкладка языка: {{ label }}">
+              {{ label }}
+              {% if code != 'ru' %}
+                <span class="w-1.5 h-1.5 rounded-full flex-none"
+                      style="background:{{ '#10B981' if filled else 'var(--ink-4)' }}"
+                      title="{{ 'Перевод заполнен' if filled else 'Перевода пока нет' }}"></span>
+              {% endif %}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% for code, label, hint in langs %}
+        {% set title_value = (course | attr('title_' ~ code)) if course else '' %}
+        {% set summary_value = (course | attr('summary_' ~ code)) if course else '' %}
+        {% set outcomes_value = (course | attr('outcomes_' ~ code)) if course else '' %}
+
+        <div data-panel="{{ code }}" class="{% if code != 'ru' %}hidden {% endif %}space-y-5">
+
+          {# ── название ── #}
+          <div>
+            <label class="label" for="title-{{ code }}">
+              Название курса
+              {% if code == 'ru' %}
+                <span style="color:var(--brand)" aria-hidden="true">*</span>
+                <span class="sr-only">обязательное поле</span>
+              {% else %}
+                <span class="ink-muted font-normal">· {{ label }}</span>
+              {% endif %}
+            </label>
+            <input type="text" id="title-{{ code }}" name="title_{{ code }}" class="field" maxlength="200"
+                   value="{{ title_value }}" autocomplete="off"
+                   {% if code == 'ru' %}required data-slug-source="#slug"{% endif %}
+                   placeholder="{% if code == 'ru' %}Например, «Электронный журнал за 15 минут»{% elif code == 'kk' %}Курстың атауы{% else %}Course title{% endif %}">
+            {% if code == 'ru' %}
+              <p class="help">Из русского названия автоматически складывается адрес курса — его можно поправить справа.</p>
+            {% endif %}
+          </div>
+
+          {# ── краткое описание ── #}
+          <div>
+            <label class="label" for="summary-{{ code }}">
+              Краткое описание
+              {% if code != 'ru' %}<span class="ink-muted font-normal">· {{ label }}</span>{% endif %}
+            </label>
+            <textarea id="summary-{{ code }}" name="summary_{{ code }}" rows="4" class="field"
+                      placeholder="{% if code == 'ru' %}Два-три предложения о том, что даст курс и кому он пригодится{% else %}Краткое описание ({{ label }}){% endif %}">{{ summary_value }}</textarea>
+            <p class="help flex items-start gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+              <span>Показывается на карточке курса и на странице сервиса. Обычный текст без оформления.</span>
+            </p>
+          </div>
+
+          {# ── результаты обучения ── #}
+          <div>
+            <label class="label" for="outcomes-{{ code }}">
+              Чему научится студент
+              {% if code != 'ru' %}<span class="ink-muted font-normal">· {{ label }}</span>{% endif %}
+            </label>
+            <textarea id="outcomes-{{ code }}" name="outcomes_{{ code }}" rows="6" class="field font-mono !text-[13px]"
+                      placeholder="{% if code == 'ru' %}Входить в сервис с любого устройства&#10;Находить расписание своей группы&#10;Скачивать справки без визита в колледж{% else %}По одному пункту на строку ({{ label }}){% endif %}">{{ outcomes_value }}</textarea>
+            <div class="help flex items-start gap-1.5">
+              <i data-lucide="list-checks" class="w-3.5 h-3.5 flex-none mt-px"></i>
+              <span>
+                По одному пункту на строку — каждая строка станет отдельным пунктом со галочкой на странице курса.
+                Дефисы и точки в начале строки ставить не нужно, они убираются автоматически.
+              </span>
+            </div>
+            {% if course and code == 'ru' and course.outcome_list('ru') %}
+              <div class="mt-3 p-3 rounded-xl" style="background:var(--surface-2)">
+                <p class="text-[11px] font-bold mb-2" style="color:var(--ink-3)">Так это увидит студент:</p>
+                <ul class="space-y-1.5">
+                  {% for outcome in course.outcome_list('ru') %}
+                    <li class="flex items-start gap-2 text-[12px]" style="color:var(--ink-2)">
+                      <i data-lucide="check" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+                      <span>{{ outcome }}</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if is_new %}
+      {# ── подсказка для нового курса ── #}
+      <div class="card p-5 flex items-start gap-4" style="background:var(--brand-50);border-color:color-mix(in srgb,var(--brand) 18%,transparent)">
+        <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+              style="background:var(--surface);color:var(--brand)">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </span>
+        <div class="min-w-0">
+          <h3 class="font-display font-bold text-sm" style="color:var(--brand-700)">Что дальше</h3>
+          <p class="text-[12px] mt-1 leading-relaxed" style="color:var(--ink-3)">
+            Сохраните курс — и на этой же странице появится программа: можно будет добавлять модули,
+            наполнять их уроками, менять порядок перетаскиванием и собрать итоговый тест.
+          </p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ─────────────── ПРАВАЯ КОЛОНКА: ПАРАМЕТРЫ ─────────────── #}
+  <aside class="lg:col-span-4 space-y-5 lg:sticky lg:top-[4.75rem] lg:max-h-[calc(100vh-6.5rem)] lg:overflow-y-auto lg:pr-1">
+
+    {# ── сохранение ── #}
+    <div class="card p-5">
+      <button type="submit" class="btn btn-primary btn-block">
+        <i data-lucide="save"></i>{{ 'Создать курс' if is_new else 'Сохранить' }}
+      </button>
+      <p class="help text-center">
+        {% if is_new %}
+          После сохранения откроется программа курса.
+        {% else %}
+          Последнее изменение: {{ course.updated_at | dt }}
+        {% endif %}
+      </p>
+
+      {% if course %}
+        <a href="#modules" class="btn btn-ghost btn-sm btn-block mt-3">
+          <i data-lucide="layers"></i>К модулям и урокам
+        </a>
+      {% endif %}
+    </div>
+
+    {# ── публикация ── #}
+    <div class="card p-5 space-y-4">
+      <h3 class="font-display font-bold text-sm flex items-center gap-2">
+        <i data-lucide="eye" class="w-4 h-4" style="color:var(--brand)"></i>Видимость
+      </h3>
+
+      <div class="flex items-start justify-between gap-3">
+        <label class="label !mb-0 cursor-pointer" for="is_published">
+          Опубликован
+          <span class="block text-[11px] font-normal ink-muted">Виден студентам на странице сервиса</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="is_published" name="is_published" value="1"
+                 {% if is_new or course.is_published %}checked{% endif %}>
+          <span></span>
+        </label>
+      </div>
+
+      <div class="flex items-start justify-between gap-3 pt-4 border-t" style="border-color:var(--line)">
+        <label class="label !mb-0 cursor-pointer" for="certificate_enabled">
+          Выдавать сертификат
+          <span class="block text-[11px] font-normal ink-muted">Появится после сдачи теста на проходной балл</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="certificate_enabled" name="certificate_enabled" value="1"
+                 {% if is_new or course.certificate_enabled %}checked{% endif %}>
+          <span></span>
+        </label>
+      </div>
+    </div>
+
+    {# ── привязка и адрес ── #}
+    <div class="card p-5 space-y-4">
+      <h3 class="font-display font-bold text-sm flex items-center gap-2">
+        <i data-lucide="link" class="w-4 h-4" style="color:var(--brand)"></i>Сервис и адрес
+      </h3>
+
+      <div>
+        <label class="label" for="service_id">Сервис курса</label>
+        {% if services %}
+          <select id="service_id" name="service_id" class="field">
+            <option value="">— без привязки к сервису —</option>
+            {% for service in services %}
+              {% set taken = service.course and (not course or service.course.id != course.id) %}
+              <option value="{{ service.id }}"
+                      {% if course and course.service_id == service.id %}selected{% endif %}
+                      {% if taken %}disabled{% endif %}>
+                {{ service.tr('name') }}{% if taken %} — курс уже есть{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="help">
+            У одного сервиса может быть только один курс. Занятые сервисы в списке неактивны.
+          </p>
+        {% else %}
+          <div class="text-center py-5 rounded-xl border border-dashed" style="border-color:var(--line-strong);background:var(--surface-2)">
+            <span class="grid place-items-center w-10 h-10 rounded-xl mx-auto mb-2"
+                  style="background:var(--surface);color:var(--ink-4)">
+              <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            </span>
+            <p class="text-xs font-semibold">Сервисов пока нет</p>
+            <p class="text-[11px] ink-muted mt-1 px-4">Создайте сервис — и курс можно будет к нему привязать.</p>
+            <a href="{{ url_for('admin.service_edit') }}" class="btn btn-soft btn-sm mt-3">
+              <i data-lucide="plus"></i>Новый сервис
+            </a>
+          </div>
+        {% endif %}
+
+        {% if course and course.service %}
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <a href="{{ url_for('admin.service_edit', service_id=course.service.id) }}" class="chip !py-1 !px-2.5 !text-[11px]">
+              <i data-lucide="pencil" class="w-3 h-3"></i>Карточка сервиса
+            </a>
+            <a href="{{ url_for('public.service_detail', slug=course.service.slug) }}" target="_blank" rel="noopener"
+               class="chip !py-1 !px-2.5 !text-[11px]">
+              <i data-lucide="external-link" class="w-3 h-3"></i>На сайте
+            </a>
+          </div>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="label" for="slug">Адрес курса</label>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-mono flex-none" style="color:var(--ink-4)">/learn/</span>
+          <input type="text" id="slug" name="slug" class="field !font-mono !text-[13px]" maxlength="120"
+                 value="{{ course.slug if course else '' }}" data-slugify autocomplete="off"
+                 placeholder="zhurnal-za-15-minut">
+        </div>
+        <p class="help">
+          Только латиница, цифры и дефисы. Оставьте пустым — соберём из названия.
+          {% if course %}Менять адрес у опубликованного курса не стоит: старые ссылки перестанут открываться.{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {# ── параметры обучения ── #}
+    <div class="card p-5">
+      <h3 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4" style="color:var(--brand)"></i>Параметры курса
+      </h3>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="level">Уровень</label>
+          <select id="level" name="level" class="field">
+            {% for value, label, hint in levels %}
+              <option value="{{ value }}" {% if (course.level if course else 'beginner') == value %}selected{% endif %}>
+                {{ label }} — {{ hint | lower }}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="help">Показывается бейджем на карточке курса.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="duration_min">Длительность</label>
+            <div class="relative">
+              <input type="number" id="duration_min" name="duration_min" class="field !pr-12"
+                     min="1" max="600" step="1" value="{{ course.duration_min if course else 15 }}">
+              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                    style="color:var(--ink-4)">мин</span>
+            </div>
+            <p class="help">
+              {% if course and lesson_count %}
+                Сумма по урокам: {{ course.lessons | sum(attribute='duration_min') }} мин.
+              {% else %}
+                Общее время прохождения.
+              {% endif %}
+            </p>
+          </div>
+
+          <div>
+            <label class="label" for="pass_score">Проходной балл</label>
+            <div class="relative">
+              <input type="number" id="pass_score" name="pass_score" class="field !pr-10"
+                     min="0" max="100" step="1" value="{{ course.pass_score if course else 70 }}">
+              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                    style="color:var(--ink-4)">%</span>
+            </div>
+            <p class="help">Порог для теста.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── обложка ── #}
+    <div class="card p-5">
+      <h3 class="font-display font-bold text-sm mb-4 flex items-center gap-2">
+        <i data-lucide="image" class="w-4 h-4" style="color:var(--brand)"></i>Обложка
+      </h3>
+
+      <span class="label">Предпросмотр</span>
+      <div id="cover-preview"
+           class="grid place-items-center w-full h-36 rounded-xl border border-dashed overflow-hidden mb-3"
+           style="border-color:var(--line-strong);background:var(--surface-2)">
+        {% if course and course.cover %}
+          <img src="{{ url_for('static', filename=course.cover) }}"
+               alt="Обложка курса «{{ course.tr('title') }}»" class="w-full h-full object-cover">
+        {% else %}
+          <span class="text-center px-4">
+            <i data-lucide="image-off" class="w-6 h-6 mx-auto mb-1.5" style="color:var(--ink-4)"></i>
+            <span class="block text-[11px] ink-muted">Обложка пока не выбрана</span>
+          </span>
+        {% endif %}
+      </div>
+
+      <label class="label" for="cover">Файл обложки</label>
+      <input type="file" id="cover" name="cover" accept="image/*" data-preview-for="#cover-preview"
+             class="field !py-2 !text-xs file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:cursor-pointer file:bg-[var(--brand-50)] file:text-[var(--brand-700)]">
+      <p class="help">
+        JPG, PNG или WebP, лучше горизонтальную — примерно 1200×630. Большие картинки уменьшаются автоматически.
+        {% if course and course.cover %}Новый файл заменит текущую обложку.{% endif %}
+      </p>
+    </div>
+  </aside>
+</form>
+{# ══════════════════════════ КОНЕЦ ГЛАВНОЙ ФОРМЫ ══════════════════════════ #}
+
+{% if course %}
+{# ══════════════════════════════════════════════════════════════════════════
+   МОДУЛИ И УРОКИ — отдельные формы, вне формы курса
+   ══════════════════════════════════════════════════════════════════════════ #}
+<section id="modules" class="mt-10 scroll-mt-24">
+
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div class="min-w-0">
+      <h2 class="font-display font-extrabold text-xl flex items-center gap-2.5">
+        <span class="grid place-items-center w-9 h-9 rounded-xl flex-none"
+              style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+          <i data-lucide="layers" class="w-5 h-5"></i>
+        </span>
+        Модули и уроки
+      </h2>
+      <p class="text-xs ink-muted mt-1.5">
+        Потяните за ручку слева, чтобы поменять порядок — он сохранится сам.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-slate">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+        {{ module_count }} {{ module_count | plural('модуль', 'модуля', 'модулей') }}
+      </span>
+      <span class="badge badge-slate">
+        <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+        {{ lesson_count }} {{ lesson_count | plural('урок', 'урока', 'уроков') }}
+      </span>
+    </div>
+  </div>
+
+  {# ── карточка итогового теста ── #}
+  <a href="{{ url_for('admin.quiz_edit', course_id=course.id) }}"
+     class="card card-hover flex items-center gap-4 p-5 mb-6" style="border-left:3px solid var(--brand)">
+    <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+          style="background:var(--brand-50);color:var(--brand)">
+      <i data-lucide="list-checks" class="w-5 h-5"></i>
+    </span>
+    <span class="flex-1 min-w-0">
+      <span class="block text-sm font-bold">{{ quiz.tr('title') if quiz else 'Итоговый тест' }}</span>
+      <span class="block text-xs ink-muted mt-0.5">
+        {% if question_count %}
+          {{ question_count }} {{ question_count | plural('вопрос', 'вопроса', 'вопросов') }} ·
+          проходной балл {{ quiz.pass_score }}%{% if course.certificate_enabled %} · по результату выдаётся сертификат{% endif %}
+        {% elif quiz %}
+          Тест создан, но вопросов пока нет — добавьте хотя бы один
+        {% else %}
+          Теста ещё нет. Создайте его, чтобы проверять знания и выдавать сертификаты
+        {% endif %}
+      </span>
+    </span>
+    <span class="badge {{ 'badge-emerald' if question_count else 'badge-amber' }} flex-none hidden sm:inline-flex">
+      {{ 'Готов' if question_count else 'Настроить' }}
+    </span>
+    <i data-lucide="arrow-right" class="w-4 h-4 flex-none" style="color:var(--brand)"></i>
+  </a>
+
+  {# ── список модулей ── #}
+  {% if course.modules %}
+    <div id="modules-list" class="space-y-4" data-sortable="module">
+      {% for module in course.modules %}
+        <article class="card overflow-hidden" data-module-item data-id="{{ module.id }}" x-data="{ editing: false }">
+
+          {# шапка модуля #}
+          <div class="flex items-start gap-3 p-4 sm:p-5">
+            <span class="drag-handle grid place-items-center w-8 h-8 rounded-lg flex-none mt-0.5"
+                  data-handle="module" aria-hidden="true"
+                  title="Перетащите, чтобы изменить порядок модулей">
+              <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+            </span>
+
+            <span class="grid place-items-center w-8 h-8 rounded-lg flex-none mt-0.5 text-xs font-extrabold tabular-nums"
+                  style="background:var(--brand-50);color:var(--brand)">{{ loop.index }}</span>
+
+            <div class="flex-1 min-w-0">
+              <h3 class="font-display font-bold text-sm sm:text-base leading-snug">{{ module.tr('title') }}</h3>
+              {% if module.tr('description') %}
+                <p class="text-xs ink-muted mt-1 line-clamp-2">{{ module.tr('description') }}</p>
+              {% endif %}
+              <p class="text-[11px] mt-1.5" style="color:var(--ink-4)">
+                {{ module.lessons | length }} {{ (module.lessons | length) | plural('урок', 'урока', 'уроков') }}
+                {% if module.lessons %} · {{ module.lessons | sum(attribute='duration_min') }} мин{% endif %}
+              </p>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-none">
+              <button type="button" @click="editing = !editing" :aria-expanded="editing ? 'true' : 'false'"
+                      class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+                      style="border-color:var(--line);color:var(--ink-3)"
+                      aria-label="Изменить модуль «{{ module.tr('title') }}»" title="Изменить модуль">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
+              </button>
+
+              <form method="post" action="{{ url_for('admin.module_delete', module_id=module.id) }}"
+                    data-confirm="Удалить модуль «{{ module.tr('title') }}» вместе со всеми уроками внутри? Отменить не получится.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                        class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                        style="border-color:var(--line);color:var(--ink-3)"
+                        aria-label="Удалить модуль «{{ module.tr('title') }}»" title="Удалить модуль">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {# свёрнутая форма редактирования модуля #}
+          <div x-show="editing" x-collapse x-cloak>
+            <form method="post" action="{{ url_for('admin.module_update', module_id=module.id) }}"
+                  class="px-4 sm:px-5 pb-5 pt-1 border-t" style="border-color:var(--line);background:var(--surface-2)">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <div class="pt-4" data-tabs="lang">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <p class="text-[11px] font-extrabold uppercase tracking-[.1em]" style="color:var(--ink-4)">Редактирование модуля</p>
+                  <div class="flex items-center gap-1.5 p-1 rounded-xl" style="background:var(--surface)" role="tablist"
+                       aria-label="Язык модуля «{{ module.tr('title') }}»">
+                    {% for code, label, hint in langs %}
+                      <button type="button" class="chip !py-1 !px-2.5 !text-[11px]" data-tab="{{ code }}">{{ label }}</button>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                {% for code, label, hint in langs %}
+                  <div data-panel="{{ code }}" class="{% if code != 'ru' %}hidden {% endif %}space-y-3">
+                    <div>
+                      <label class="label !text-xs" for="module-{{ module.id }}-title-{{ code }}">
+                        Название модуля
+                        {% if code == 'ru' %}
+                          <span style="color:var(--brand)" aria-hidden="true">*</span>
+                        {% else %}
+                          <span class="ink-muted font-normal">· {{ label }}</span>
+                        {% endif %}
+                      </label>
+                      <input type="text" id="module-{{ module.id }}-title-{{ code }}" name="title_{{ code }}"
+                             class="field" maxlength="200" autocomplete="off"
+                             value="{{ module | attr('title_' ~ code) }}"
+                             {% if code == 'ru' %}required{% endif %}
+                             placeholder="{% if code == 'ru' %}Например, «Первый вход»{% else %}Название ({{ label }}){% endif %}">
+                    </div>
+                    <div>
+                      <label class="label !text-xs" for="module-{{ module.id }}-description-{{ code }}">
+                        Описание
+                        {% if code != 'ru' %}<span class="ink-muted font-normal">· {{ label }}</span>{% endif %}
+                      </label>
+                      <textarea id="module-{{ module.id }}-description-{{ code }}" name="description_{{ code }}"
+                                rows="2" class="field"
+                                placeholder="{% if code == 'ru' %}Одна строка о том, что внутри модуля{% else %}Описание ({{ label }}){% endif %}">{{ module | attr('description_' ~ code) }}</textarea>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+
+              <div class="flex flex-wrap items-end justify-between gap-3 mt-4">
+                <div class="w-28">
+                  <label class="label !text-xs" for="module-{{ module.id }}-position">Порядок</label>
+                  <input type="number" id="module-{{ module.id }}-position" name="position" class="field"
+                         min="1" step="1" value="{{ module.position or loop.index }}">
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" @click="editing = false" class="btn btn-ghost btn-sm">Отмена</button>
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <i data-lucide="check"></i>Сохранить модуль
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {# уроки модуля #}
+          <div class="px-4 sm:px-5 pb-4 sm:pb-5 pt-0">
+            {% if module.lessons %}
+              <ul class="space-y-1.5" data-sortable="lesson"
+                  aria-label="Уроки модуля «{{ module.tr('title') }}»">
+                {% for lesson in module.lessons %}
+                  <li data-id="{{ lesson.id }}"
+                      class="flex items-center gap-2.5 p-2 rounded-xl border transition-colors hover:border-[var(--brand-300)]"
+                      style="border-color:var(--line);background:var(--surface)">
+                    <span class="drag-handle grid place-items-center w-7 h-7 rounded-lg flex-none"
+                          aria-hidden="true" title="Перетащите, чтобы изменить порядок уроков">
+                      <i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i>
+                    </span>
+
+                    <span class="grid place-items-center w-6 h-6 rounded-md flex-none text-[10px] font-bold tabular-nums"
+                          style="background:var(--surface-2);color:var(--ink-3)">{{ loop.index }}</span>
+
+                    <a href="{{ url_for('admin.lesson_edit', lesson_id=lesson.id) }}"
+                       class="flex-1 min-w-0 text-[13px] font-semibold truncate hover:text-[var(--brand)] transition-colors"
+                       title="{{ lesson.tr('title') }}">{{ lesson.tr('title') }}</a>
+
+                    <span class="text-[11px] flex-none tabular-nums hidden sm:inline" style="color:var(--ink-4)">
+                      {{ lesson.duration_min }} мин
+                    </span>
+
+                    <a href="{{ url_for('admin.lesson_edit', lesson_id=lesson.id) }}"
+                       class="chip !py-1 !px-2.5 !text-[11px] flex-none"
+                       aria-label="Изменить урок «{{ lesson.tr('title') }}»">
+                      <i data-lucide="pencil" class="w-3 h-3"></i><span class="hidden sm:inline">Изменить</span>
+                    </a>
+
+                    <form method="post" action="{{ url_for('admin.lesson_delete', lesson_id=lesson.id) }}"
+                          class="flex-none"
+                          data-confirm="Удалить урок «{{ lesson.tr('title') }}»? Прогресс студентов по нему тоже пропадёт. Отменить не получится.">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit"
+                              class="grid place-items-center w-7 h-7 rounded-lg transition-colors hover:text-[#E11D48]"
+                              style="color:var(--ink-4)"
+                              aria-label="Удалить урок «{{ lesson.tr('title') }}»" title="Удалить урок">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </form>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="text-center py-6 rounded-xl border border-dashed"
+                   style="border-color:var(--line-strong);background:var(--surface-2)">
+                <span class="grid place-items-center w-10 h-10 rounded-xl mx-auto mb-2"
+                      style="background:var(--surface);color:var(--ink-4)">
+                  <i data-lucide="book-open" class="w-5 h-5"></i>
+                </span>
+                <p class="text-xs font-semibold">В модуле пока нет уроков</p>
+                <p class="text-[11px] ink-muted mt-1 px-4">
+                  Добавьте первый урок — с него студенты и начнут знакомство с модулем.
+                </p>
+              </div>
+            {% endif %}
+
+            <a href="{{ url_for('admin.lesson_edit', module_id=module.id) }}"
+               class="btn btn-soft btn-sm btn-block mt-3">
+              <i data-lucide="plus"></i>Добавить урок в «{{ module.tr('title') | truncate(34, true, '…') }}»
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    {# ── пустое состояние: модулей нет ── #}
+    <div class="card p-8 sm:p-10 text-center">
+      <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="layers" class="w-7 h-7"></i>
+      </span>
+      <h3 class="font-display font-bold text-base">Модулей пока нет</h3>
+      <p class="text-sm ink-muted mt-1.5 max-w-md mx-auto">
+        Модуль — это раздел курса: например, «Первый вход» или «Работа с расписанием».
+        Создайте первый модуль в форме ниже, а потом наполните его уроками.
+      </p>
+      <a href="#module-add" class="btn btn-soft btn-sm mt-4">
+        <i data-lucide="arrow-down"></i>К форме добавления
+      </a>
+    </div>
+  {% endif %}
+
+  {# ── форма добавления модуля ── #}
+  <form id="module-add" method="post" action="{{ url_for('admin.module_add', course_id=course.id) }}"
+        class="card p-5 sm:p-6 mt-6 scroll-mt-24">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-5" data-tabs="lang">
+      <div class="min-w-0">
+        <h3 class="font-display font-bold text-base flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-4 h-4" style="color:var(--brand)"></i>Новый модуль
+        </h3>
+        <p class="text-xs ink-muted mt-0.5">
+          Появится последним в программе — порядок потом легко поменять перетаскиванием.
+        </p>
+      </div>
+    </div>
+
+    <div data-tabs="lang">
+      <div class="flex items-center gap-1.5 p-1 rounded-xl w-fit mb-4" style="background:var(--surface-2)"
+           role="tablist" aria-label="Язык нового модуля">
+        {% for code, label, hint in langs %}
+          <button type="button" class="chip !py-1.5 !px-3 !text-xs" data-tab="{{ code }}">{{ label }}</button>
+        {% endfor %}
+      </div>
+
+      {% for code, label, hint in langs %}
+        <div data-panel="{{ code }}" class="{% if code != 'ru' %}hidden {% endif %}grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="new-module-title-{{ code }}">
+              Название модуля
+              {% if code == 'ru' %}
+                <span style="color:var(--brand)" aria-hidden="true">*</span>
+                <span class="sr-only">обязательное поле</span>
+              {% else %}
+                <span class="ink-muted font-normal">· {{ label }}</span>
+              {% endif %}
+            </label>
+            <input type="text" id="new-module-title-{{ code }}" name="title_{{ code }}" class="field"
+                   maxlength="200" autocomplete="off"
+                   {% if code == 'ru' %}required{% endif %}
+                   placeholder="{% if code == 'ru' %}Например, «Знакомство с личным кабинетом»{% elif code == 'kk' %}Модуль атауы{% else %}Module title{% endif %}">
+            {% if code == 'ru' %}
+              <p class="help">Без русского названия модуль не сохранится.</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="label" for="new-module-description-{{ code }}">
+              Описание
+              {% if code != 'ru' %}<span class="ink-muted font-normal">· {{ label }}</span>{% endif %}
+            </label>
+            <textarea id="new-module-description-{{ code }}" name="description_{{ code }}" rows="2" class="field"
+                      placeholder="{% if code == 'ru' %}Коротко о том, что студент пройдёт в этом модуле{% else %}Описание ({{ label }}){% endif %}"></textarea>
+            {% if code == 'ru' %}
+              <p class="help">Необязательно, но помогает студенту сориентироваться.</p>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-5 pt-5 border-t" style="border-color:var(--line)">
+      <p class="text-[11px] ink-muted flex items-center gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 flex-none"></i>
+        Уроки добавляются внутрь модуля после его создания.
+      </p>
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i data-lucide="plus"></i>Добавить модуль
+      </button>
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* Список модулей сортируем отдельно от общего механизма в admin.js:
+     тот собирает все элементы с data-id внутри контейнера, а внутри модулей
+     лежат ещё и уроки — их идентификаторы попадать в порядок модулей не должны. */
+  (function () {
+    var list = document.getElementById('modules-list');
+    if (!list) return;
+
+    /* Прячем список от общей инициализации, пока она не отработает. */
+    list.removeAttribute('data-sortable');
+
+    function setup() {
+      list.setAttribute('data-sortable', 'module');
+      if (!window.Sortable) return;
+
+      window.Sortable.create(list, {
+        handle: '[data-handle="module"]',
+        draggable: '[data-module-item]',
+        animation: 180,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: function () {
+          var order = Array.prototype.map.call(
+            list.querySelectorAll(':scope > [data-module-item]'),
+            function (node) { return node.dataset.id; }
+          );
+          fetch('{{ url_for('admin.reorder', entity='module') }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': window.CSRF_TOKEN || '' },
+            body: JSON.stringify({ order: order }),
+          }).then(function (res) {
+            if (!res.ok) throw new Error('reorder failed');
+            if (window.hubToast) window.hubToast('Порядок модулей сохранён');
+          }).catch(function () {
+            if (window.hubToast) window.hubToast('Не удалось сохранить порядок модулей', 'error');
+          });
+        },
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setup);
+    } else {
+      setup();
+    }
+  })();
+</script>
+{% endblock %}

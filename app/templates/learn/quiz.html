@@ -1,0 +1,371 @@
+{% extends 'layouts/base.html' %}
+
+{% set svc = course.service %}
+{% set questions = quiz.questions %}
+{% set total = questions | length %}
+{% set answerable = questions | selectattr('options') | list | length %}
+{% set pass_score = quiz.pass_score or 70 %}
+
+{% block title %}{{ quiz.tr('title') }} — {{ course.tr('title') }}{% endblock %}
+{% block description %}{{ quiz.tr('description') | excerpt(160) or 'Итоговый тест курса «' ~ course.tr('title') ~ '»: проверьте, насколько уверенно вы пользуетесь сервисом.' }}{% endblock %}
+
+{% block content %}
+<div style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+<form method="post" action="{{ url_for('learn.quiz', slug=course.slug) }}" data-quiz-form>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {# ══════════════════════ ШАПКА ТЕСТА ══════════════════════ #}
+  <section class="relative overflow-hidden grain">
+    <div class="absolute inset-0 pointer-events-none"
+         style="background:radial-gradient(1000px circle at 14% -18%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 60%),
+                           radial-gradient(760px circle at 88% 0%, color-mix(in srgb, var(--brand-2) 16%, transparent), transparent 58%)"></div>
+    <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+    <div class="container-hub relative z-10 pt-8 pb-10">
+
+      {# Хлебные крошки #}
+      <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+        <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Главная</a>
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+        <a href="{{ url_for('public.services') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Сервисы</a>
+        {% if svc %}
+          <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+          <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ svc.tr('name') }}</a>
+        {% endif %}
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+        <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="ink-muted hover:text-[var(--brand)] transition-colors truncate max-w-[14rem]">{{ course.tr('title') }}</a>
+        <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+        <span class="font-semibold">{{ t('learn.quiz') }}</span>
+      </nav>
+
+      <div class="grid lg:grid-cols-12 gap-8 items-start">
+        <div class="lg:col-span-7 xl:col-span-8">
+          <span class="badge badge-brand mb-4 animate-fade-up">
+            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>{{ t('learn.quiz') }}
+          </span>
+
+          <h1 class="font-display text-3xl sm:text-4xl xl:text-[2.6rem] font-extrabold leading-[1.12] animate-fade-up" style="animation-delay:.06s">
+            {{ quiz.tr('title') }}
+          </h1>
+
+          <p class="mt-4 text-base sm:text-lg ink-muted leading-relaxed max-w-2xl animate-fade-up" style="animation-delay:.12s">
+            {% if quiz.tr('description') %}
+              {{ quiz.tr('description') }}
+            {% else %}
+              Последний шаг курса «{{ course.tr('title') }}». Отвечайте спокойно: правильный ответ всегда один, а число попыток не ограничено.
+            {% endif %}
+          </p>
+
+          {# Мета-строка #}
+          <div class="flex flex-wrap items-center gap-x-5 gap-y-2.5 mt-7 text-sm animate-fade-up" style="animation-delay:.18s;color:var(--ink-2)">
+            <span class="inline-flex items-center gap-2">
+              <i data-lucide="list-checks" class="w-4 h-4" style="color:var(--brand)"></i>
+              {{ total }} {{ total | plural('вопрос', 'вопроса', 'вопросов') }}
+            </span>
+            <span class="w-1 h-1 rounded-full hidden sm:block" style="background:var(--ink-4)"></span>
+            <span class="inline-flex items-center gap-2">
+              <i data-lucide="target" class="w-4 h-4" style="color:var(--brand)"></i>
+              проходной балл {{ pass_score }}%
+            </span>
+            <span class="w-1 h-1 rounded-full hidden sm:block" style="background:var(--ink-4)"></span>
+            <span class="inline-flex items-center gap-2">
+              <i data-lucide="refresh-cw" class="w-4 h-4" style="color:var(--brand)"></i>
+              попытки не ограничены
+            </span>
+            {% if quiz.time_limit_min %}
+              <span class="w-1 h-1 rounded-full hidden sm:block" style="background:var(--ink-4)"></span>
+              <span class="inline-flex items-center gap-2">
+                <i data-lucide="timer" class="w-4 h-4" style="color:var(--brand)"></i>
+                ориентировочно {{ quiz.time_limit_min }} {{ t('learn.minutes') }}
+              </span>
+            {% endif %}
+          </div>
+
+          {% if course.certificate_enabled %}
+            <p class="flex items-start gap-2.5 mt-5 text-xs leading-relaxed max-w-xl animate-fade-up" style="animation-delay:.24s;color:var(--ink-3)">
+              <i data-lucide="award" class="w-4 h-4 flex-none mt-px" style="color:var(--brand)"></i>
+              Наберёте {{ pass_score }}% и больше — сертификат появится в вашем кабинете автоматически.
+            </p>
+          {% endif %}
+        </div>
+
+        {# Лучший результат #}
+        <div class="lg:col-span-5 xl:col-span-4">
+          {% if best %}
+            <div class="card p-6 animate-fade-up" style="animation-delay:.2s">
+              <div class="flex items-center gap-4">
+                <span class="grid place-items-center w-14 h-14 rounded-2xl flex-none font-display text-lg font-extrabold"
+                      style="background:{{ 'rgba(16,185,129,.12)' if best.passed else 'var(--brand-50)' }};color:{{ '#047857' if best.passed else 'var(--brand)' }}">
+                  {{ best.score }}%
+                </span>
+                <div class="min-w-0">
+                  <p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--ink-4)">Ваш лучший результат</p>
+                  <p class="font-display text-base font-bold mt-0.5">
+                    {{ best.correct_count }} {{ t('common.of') }} {{ best.total_count }} {{ best.total_count | plural('верный ответ', 'верных ответа', 'верных ответов') }}
+                  </p>
+                  <span class="badge {{ 'badge-emerald' if best.passed else 'badge-amber' }} mt-2">
+                    <i data-lucide="{{ 'circle-check' if best.passed else 'circle-alert' }}" class="w-3 h-3"></i>
+                    {{ 'Тест сдан' if best.passed else 'Порог пока не взят' }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-3 mt-5 pt-4 border-t" style="border-color:var(--line)">
+                <span class="text-xs ink-muted">Попытка от {{ best.created_at | dt }}</span>
+                <a href="{{ url_for('learn.quiz_result', slug=course.slug, attempt_id=best.id) }}" class="btn btn-ghost btn-sm">
+                  <i data-lucide="file-search"></i> Разбор ответов
+                </a>
+              </div>
+            </div>
+          {% else %}
+            <div class="card p-6 animate-fade-up" style="animation-delay:.2s">
+              <div class="flex items-center gap-4">
+                <span class="svc-icon !w-14 !h-14 !rounded-2xl flex-none">
+                  <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="font-display text-base font-bold">Первая попытка</p>
+                  <p class="text-xs ink-muted mt-1 leading-relaxed">Результат сохранится сразу после отправки — и вы увидите разбор каждого ответа.</p>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% if answerable %}
+    {# ══════════════════════ ПРОГРЕСС ПРОХОЖДЕНИЯ ══════════════════════ #}
+    <div class="sticky z-40 border-y no-print"
+         style="top:var(--nav-h);border-color:var(--line);
+                background:color-mix(in srgb, var(--surface) 88%, transparent);
+                backdrop-filter:blur(16px) saturate(1.6);-webkit-backdrop-filter:blur(16px) saturate(1.6)">
+      <div class="container-hub py-3">
+        <div class="flex items-center gap-4">
+          <span class="hidden sm:inline-flex items-center gap-2 text-xs font-bold flex-none" style="color:var(--ink-3)">
+            <i data-lucide="gauge" class="w-4 h-4" style="color:var(--brand)"></i>
+            Прогресс прохождения
+          </span>
+          <div class="progress flex-1 min-w-0" role="progressbar" aria-label="Прогресс прохождения теста"
+               aria-valuemin="0" aria-valuemax="{{ answerable }}" aria-valuenow="0"
+               aria-valuetext="Отвечено 0 из {{ answerable }}">
+            <div class="progress__bar" data-quiz-bar style="width:0%"></div>
+          </div>
+          <span class="text-xs font-bold flex-none tabular-nums whitespace-nowrap">
+            <span data-quiz-answered style="color:var(--brand)">0</span><span style="color:var(--ink-4)">&nbsp;/&nbsp;{{ answerable }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# ══════════════════════ ВОПРОСЫ ══════════════════════ #}
+    <div class="container-hub pt-8 pb-16">
+      <div class="max-w-3xl mx-auto space-y-5">
+
+        {% for question in questions %}
+          <article id="q{{ question.id }}" class="card p-6 sm:p-7 reveal"
+                   data-reveal-delay="{{ loop.index0 * 40 if loop.index0 < 6 else 0 }}"
+                   {% if question.options %}data-question-card="q{{ question.id }}"{% endif %}>
+            <div class="flex items-start gap-4">
+              <span class="grid place-items-center w-9 h-9 rounded-full flex-none text-sm font-extrabold text-white shadow-brand"
+                    style="background:linear-gradient(135deg,var(--brand),var(--brand-2))" aria-hidden="true">{{ loop.index }}</span>
+
+              <div class="flex-1 min-w-0">
+                {% if question.options %}
+                  <div class="mb-2">
+                    <span class="badge badge-slate" data-mark-todo>
+                      <i data-lucide="circle-dashed" class="w-3 h-3"></i>Ждёт ответа
+                    </span>
+                    <span class="badge badge-emerald hidden" data-mark-done>
+                      <i data-lucide="check" class="w-3 h-3"></i>Ответ выбран
+                    </span>
+                  </div>
+                {% endif %}
+                <h2 id="q{{ question.id }}-label" class="font-display text-lg sm:text-xl font-bold leading-snug">
+                  <span class="sr-only">Вопрос {{ loop.index }} {{ t('common.of') }} {{ total }}. </span>{{ question.tr('text') }}
+                </h2>
+              </div>
+            </div>
+
+            <div class="mt-5 space-y-2.5 sm:pl-[3.25rem]" role="radiogroup" aria-labelledby="q{{ question.id }}-label">
+              {% if question.options %}
+                {% for option in question.options %}
+                  <label class="relative flex items-start gap-3.5 p-3.5 sm:p-4 rounded-xl cursor-pointer">
+                    <input type="radio" name="q{{ question.id }}" value="{{ option.id }}" class="peer sr-only" data-quiz-input>
+                    <span aria-hidden="true"
+                          class="absolute inset-0 rounded-xl border border-[color:var(--line-strong)] transition-all duration-300
+                                 peer-hover:border-[color:var(--brand-300)]
+                                 peer-checked:border-[color:var(--brand)] peer-checked:bg-[var(--brand-50)]
+                                 peer-checked:shadow-[0_12px_28px_-16px_rgba(235,90,64,.65)]
+                                 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2
+                                 peer-focus-visible:outline-[color:var(--brand)]"></span>
+                    <span aria-hidden="true"
+                          class="relative z-10 flex-none w-5 h-5 mt-px rounded-full border-2 border-[color:var(--line-strong)] transition-all duration-300
+                                 peer-checked:border-[color:var(--brand)] peer-checked:bg-[var(--brand)]
+                                 peer-checked:shadow-[inset_0_0_0_3px_var(--surface)]"></span>
+                    <span class="relative z-10 text-[15px] leading-relaxed transition-colors duration-300
+                                 text-[color:var(--ink-2)] peer-checked:text-[color:var(--ink)] peer-checked:font-semibold">
+                      {{ option.tr('text') }}
+                    </span>
+                  </label>
+                {% endfor %}
+              {% else %}
+                <p class="flex items-start gap-2.5 px-4 py-3.5 rounded-xl text-sm leading-relaxed"
+                   style="background:var(--surface-2);color:var(--ink-3)">
+                  <i data-lucide="circle-alert" class="w-4 h-4 flex-none mt-0.5" style="color:var(--ink-4)"></i>
+                  Варианты ответа для этого вопроса ещё готовятся — на итоговый балл он не повлияет.
+                </p>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+
+        {# ══════════════════════ ЗАВЕРШЕНИЕ ══════════════════════ #}
+        <div class="card p-6 sm:p-7 mt-8">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-6">
+            <div class="flex-1 min-w-0">
+              <p class="font-display text-lg font-bold">Готовы завершить?</p>
+              <p class="text-sm ink-muted mt-1.5">
+                Отвечено <span class="font-bold tabular-nums" data-quiz-answered style="color:var(--brand)">0</span>
+                {{ t('common.of') }} <span class="font-bold tabular-nums">{{ answerable }}</span> ·
+                проходной балл {{ pass_score }}%
+              </p>
+              <p class="flex items-start gap-2 text-xs mt-2.5 leading-relaxed" data-quiz-hint style="color:var(--ink-4)">
+                <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+                Ответьте на все вопросы — тогда кнопка станет активной.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 flex-none">
+              <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-ghost">
+                <i data-lucide="arrow-left"></i> Вернуться к курсу
+              </a>
+              <button type="submit" data-quiz-submit disabled
+                      class="btn btn-primary btn-lg magnetic disabled:opacity-50 disabled:shadow-none disabled:pointer-events-none">
+                <i data-lucide="check-check"></i> Завершить тест
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  {% else %}
+    {# ══════════════════════ ПУСТОЕ СОСТОЯНИЕ ══════════════════════ #}
+    <div class="container-hub pt-6 pb-20">
+      <div class="max-w-xl mx-auto card p-8 sm:p-10 text-center">
+        <span class="mx-auto grid place-items-center w-16 h-16 rounded-2xl mb-5"
+              style="background:var(--brand-50);color:var(--brand)">
+          <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+        </span>
+        <h2 class="font-display text-xl font-bold">Вопросы ещё готовятся</h2>
+        <p class="text-sm ink-muted mt-2.5 leading-relaxed">
+          В этом тесте пока нет вариантов ответа, поэтому пройти его не получится.
+          Загляните чуть позже — а пока можно повторить материалы курса.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-7">
+          <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-primary">
+            <i data-lucide="arrow-left"></i> Вернуться к курсу
+          </a>
+          {% if svc %}
+            <a href="{{ url_for('public.service_detail', slug=svc.slug) }}" class="btn btn-ghost">
+              <i data-lucide="app-window"></i> Страница сервиса
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var form = document.querySelector('[data-quiz-form]');
+    if (!form) return;
+
+    var inputs = Array.prototype.slice.call(form.querySelectorAll('input[type="radio"][data-quiz-input]'));
+    if (!inputs.length) return;
+
+    var names = [];
+    inputs.forEach(function (input) {
+      if (names.indexOf(input.name) === -1) names.push(input.name);
+    });
+
+    var total = names.length;
+    var bars = form.querySelectorAll('[data-quiz-bar]');
+    var counters = form.querySelectorAll('[data-quiz-answered]');
+    var submitBtn = form.querySelector('[data-quiz-submit]');
+    var hint = form.querySelector('[data-quiz-hint]');
+
+    function checkedFor(name) {
+      return form.querySelector('input[name="' + name + '"]:checked');
+    }
+
+    function firstUnanswered() {
+      for (var i = 0; i < names.length; i++) {
+        if (!checkedFor(names[i])) return names[i];
+      }
+      return null;
+    }
+
+    function update() {
+      var answered = 0;
+      names.forEach(function (name) {
+        var isAnswered = !!checkedFor(name);
+        if (isAnswered) answered++;
+        var card = form.querySelector('[data-question-card="' + name + '"]');
+        if (!card) return;
+        var todo = card.querySelector('[data-mark-todo]');
+        var done = card.querySelector('[data-mark-done]');
+        if (todo) todo.classList.toggle('hidden', isAnswered);
+        if (done) done.classList.toggle('hidden', !isAnswered);
+      });
+
+      var percent = total ? Math.round((answered * 100) / total) : 0;
+      Array.prototype.forEach.call(bars, function (bar) {
+        bar.style.width = percent + '%';
+        var box = bar.parentElement;
+        if (box && box.getAttribute('role') === 'progressbar') {
+          box.setAttribute('aria-valuemin', '0');
+          box.setAttribute('aria-valuemax', String(total));
+          box.setAttribute('aria-valuenow', String(answered));
+          box.setAttribute('aria-valuetext', 'Отвечено ' + answered + ' из ' + total);
+        }
+      });
+      Array.prototype.forEach.call(counters, function (el) { el.textContent = answered; });
+
+      var complete = answered >= total;
+      if (submitBtn) submitBtn.disabled = !complete;
+      if (hint) hint.classList.toggle('hidden', complete);
+    }
+
+    form.addEventListener('change', function (e) {
+      if (e.target && e.target.type === 'radio') update();
+    });
+
+    form.addEventListener('submit', function (e) {
+      var pending = firstUnanswered();
+      if (!pending) return;
+      e.preventDefault();
+      if (window.hubToast) window.hubToast('Остались вопросы без ответа — отметьте их, пожалуйста', 'info');
+      var card = form.querySelector('[data-question-card="' + pending + '"]');
+      if (!card) return;
+      if (window.__lenis) {
+        window.__lenis.scrollTo(card, { offset: -150 });
+      } else {
+        window.scrollTo({ top: card.getBoundingClientRect().top + window.pageYOffset - 150, behavior: 'smooth' });
+      }
+      var target = card.querySelector('input[type="radio"]');
+      if (target) setTimeout(function () { target.focus({ preventScroll: true }); }, 360);
+    });
+
+    update();
+    window.addEventListener('pageshow', update);
+  })();
+</script>
+{% endblock %}

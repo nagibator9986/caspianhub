@@ -1,0 +1,449 @@
+{% extends 'layouts/base.html' %}
+
+{# ───────────── Подготовка данных: делим начатые курсы на активные и завершённые ───────────── #}
+{% set in_progress = [] %}
+{% set completed = [] %}
+{% for course, pct in rows %}
+  {% if pct >= 100 %}
+    {% set _ = completed.append((course, pct)) %}
+  {% else %}
+    {% set _ = in_progress.append((course, pct)) %}
+  {% endif %}
+{% endfor %}
+
+{# Сертификаты пользователя — по id курса, чтобы не дёргать базу в цикле #}
+{% set cert_map = {} %}
+{% for cert in current_user.certificates %}
+  {% set _ = cert_map.update({cert.course_id: cert}) %}
+{% endfor %}
+
+{% set total_courses = (rows | length) + (available | length) %}
+{% set has_anything = rows or available %}
+{% set level_badges = {'beginner': 'badge-emerald', 'intermediate': 'badge-amber', 'advanced': 'badge-rose'} %}
+
+{% set tabs = [
+  ('account.dashboard',    'layout-dashboard', t('nav.account')),
+  ('account.learning',     'graduation-cap',   t('acc.my_courses')),
+  ('account.favorites',    'heart',            t('acc.favorites')),
+  ('account.certificates', 'award',            t('acc.certificates')),
+  ('account.profile',      'user-round',       t('acc.profile')),
+] %}
+
+{% block title %}{{ t('acc.my_courses') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Ваш личный прогресс по мини-курсам: начатые курсы, завершённые с сертификатами и то, что можно пройти дальше.{% endblock %}
+
+{% block content %}
+
+{# ══════════════════════ ШАПКА КАБИНЕТА ══════════════════════ #}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-12">
+
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.home') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <a href="{{ url_for('account.dashboard') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">{{ t('nav.account') }}</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('acc.my_courses') }}</span>
+    </nav>
+
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+      <div class="max-w-2xl">
+        <span class="badge badge-brand animate-fade-up">
+          <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+          {{ t('nav.courses') }}
+        </span>
+
+        <h1 class="font-display text-[2.1rem] sm:text-4xl xl:text-[3rem] font-extrabold leading-[1.08] mt-5 animate-fade-up" style="animation-delay:.08s">
+          Моё <span class="text-gradient">обучение</span>
+        </h1>
+
+        <p class="mt-5 text-base sm:text-lg ink-muted leading-relaxed animate-fade-up" style="animation-delay:.16s">
+          {% if in_progress %}
+            Здесь собраны курсы, которые вы уже начали. Можно продолжить ровно с того места, где остановились.
+          {% elif completed %}
+            Все начатые курсы пройдены до конца — отличная работа. Ниже ждут новые мини-курсы по сервисам.
+          {% else %}
+            Выберите мини-курс по сервису колледжа — каждый занимает 10–20 минут, а прогресс мы сохраним.
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="flex flex-wrap gap-2.5 animate-fade-up flex-none" style="animation-delay:.24s">
+        <a href="{{ url_for('public.courses') }}" class="btn btn-ghost">
+          <i data-lucide="library"></i>
+          Каталог курсов
+        </a>
+        {% if cert_map %}
+          <a href="{{ url_for('account.certificates') }}" class="btn btn-soft">
+            <i data-lucide="award"></i>
+            {{ t('acc.certificates') }}
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ───────────── Вкладки кабинета ───────────── #}
+    <nav class="mt-9 -mx-5 px-5 md:-mx-8 md:px-8 overflow-x-auto" aria-label="Разделы кабинета">
+      <ul class="flex items-center gap-2 w-max lg:w-auto lg:flex-wrap">
+        {% for endpoint, icon, label in tabs %}
+          {% set is_active = (request.endpoint == endpoint) %}
+          <li>
+            <a href="{{ url_for(endpoint) }}"
+               class="chip whitespace-nowrap{{ ' is-active' if is_active else '' }}"
+               {% if is_active %}aria-current="page"{% endif %}>
+              <i data-lucide="{{ icon }}" class="w-3.5 h-3.5"></i>
+              {{ label }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+  </div>
+</section>
+
+<div class="container-hub pb-24">
+
+  {# ══════════════════════ СВОДКА ══════════════════════ #}
+  {% set summary = [
+    ('play-circle',  rows | length,      'Курсов начато',  'вы уже открывали эти курсы', 'var(--brand)'),
+    ('badge-check',  completed | length, 'Завершено',      'пройдено полностью, на 100 %', '#10B981'),
+    ('library',      total_courses,      'Всего доступно', 'мини-курсов на платформе',   'var(--brand-2)'),
+  ] %}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 -mt-2 mb-14">
+    {% for icon, value, label, caption, color in summary %}
+      <div class="card stat-card p-5 flex items-center gap-4 reveal" data-reveal-delay="{{ loop.index0 * 80 }}"
+           style="--glow:{{ color }}">
+        <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+              style="background:color-mix(in srgb, {{ color }} 14%, transparent);color:{{ color }}">
+          <i data-lucide="{{ icon }}" class="w-6 h-6"></i>
+        </span>
+        <span class="leading-tight min-w-0">
+          <span class="block font-display text-[1.75rem] font-extrabold leading-none">
+            <span data-count="{{ value }}">0</span>
+          </span>
+          <span class="block text-xs font-bold mt-1.5">{{ label }}</span>
+          <span class="block text-[11px] ink-muted mt-0.5">{{ caption }}</span>
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if not has_anything %}
+
+    {# ══════════════════════ ОБЩЕЕ ПУСТОЕ СОСТОЯНИЕ ══════════════════════ #}
+    <div class="card p-10 sm:p-14 text-center max-w-xl mx-auto reveal">
+      <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-6"
+            style="background:var(--brand-50);color:var(--brand)">
+        <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+      </span>
+      <h2 class="font-display text-xl sm:text-2xl font-extrabold">{{ t('common.empty') }}: курсы ещё готовятся</h2>
+      <p class="mt-3 text-sm ink-muted leading-relaxed">
+        Пока ни один мини-курс не опубликован — мы записываем первые уроки по сервисам колледжа.
+        Загляните в каталог сервисов: там уже можно найти всё нужное и написать нам, с чем стоит разобраться в первую очередь.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-2.5 mt-8">
+        <a href="{{ url_for('public.services') }}" class="btn btn-primary magnetic">
+          <i data-lucide="layout-grid"></i>
+          {{ t('action.all_services') }}
+        </a>
+        <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+          <i data-lucide="send"></i>
+          Написать нам
+        </a>
+      </div>
+    </div>
+
+  {% else %}
+
+    {# ══════════════════════ В ПРОЦЕССЕ ══════════════════════ #}
+    {% if in_progress %}
+      <section class="mb-16">
+        {% with center=false,
+                eyebrow='Ваш прогресс',
+                eyebrow_icon='activity',
+                title='В процессе',
+                subtitle='Эти курсы вы уже начали. Мы помним каждый пройденный урок — просто продолжайте.',
+                link=url_for('public.courses'),
+                link_text='Каталог курсов' %}
+          {% include 'partials/section_head.html' %}
+        {% endwith %}
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% for course, pct in in_progress %}
+            {% set svc = course.service %}
+            {% set total_lessons = course.lesson_count or 0 %}
+            {% set done_lessons = ((total_lessons * pct) / 100) | round | int %}
+            {% set left_lessons = total_lessons - done_lessons %}
+            <article class="card card-hover svc-card group relative flex flex-col h-full p-6 reveal"
+                     data-reveal-delay="{{ loop.index0 % 3 * 60 }}"
+                     style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+
+              <div class="flex items-start justify-between gap-3 mb-5">
+                <span class="svc-icon">
+                  {% if svc and svc.logo %}
+                    <img src="{{ url_for('static', filename=svc.logo) }}" alt="" class="w-8 h-8 object-contain">
+                  {% else %}
+                    <i data-lucide="{{ svc.icon if svc else 'graduation-cap' }}" class="w-6 h-6"></i>
+                  {% endif %}
+                </span>
+                <span class="badge {{ level_badges.get(course.level, 'badge-slate') }}">{{ course.level_label }}</span>
+              </div>
+
+              {% if svc %}
+                <span class="block text-[11px] font-bold uppercase tracking-wider truncate mb-1.5" style="color:var(--ink-4)">
+                  {{ svc.tr('name') }}
+                </span>
+              {% endif %}
+
+              <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+                {{ course.tr('title') }}
+              </h3>
+
+              <p class="text-sm ink-muted leading-relaxed flex-1">
+                {{ course.tr('summary') | excerpt(120) or 'Короткий курс: шаг за шагом показываем, как пользоваться сервисом.' }}
+              </p>
+
+              <div class="mt-5">
+                <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+                  <span class="ink-muted">{{ t('learn.progress') }}</span>
+                  <span style="color:var(--brand)">{{ pct }}%</span>
+                </div>
+                <div class="progress" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"
+                     aria-label="Курс «{{ course.tr('title') }}» пройден на {{ pct }} процентов">
+                  <div class="progress__bar" style="width:{{ pct }}%"></div>
+                </div>
+                <p class="text-[11px] ink-muted mt-2">
+                  {% if total_lessons %}
+                    Пройдено {{ done_lessons }} {{ t('common.of') }} {{ total_lessons }}
+                    {{ total_lessons | plural('урока', 'уроков', 'уроков') }}{% if left_lessons > 0 %} — осталось {{ left_lessons }}{% endif %}
+                  {% else %}
+                    Уроки этого курса скоро появятся
+                  {% endif %}
+                </p>
+              </div>
+
+              <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t" style="border-color:var(--line)">
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold" style="color:var(--ink-3)">
+                  <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                  {{ course.duration_min or 0 }} {{ t('learn.minutes') }}
+                </span>
+                <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+                   class="btn btn-primary btn-sm before:absolute before:inset-0 before:z-10"
+                   aria-label="Продолжить курс «{{ course.tr('title') }}»">
+                  <i data-lucide="play-circle"></i>
+                  {{ t('action.continue') }}
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {# ══════════════════════ ЗАВЕРШЁННЫЕ ══════════════════════ #}
+    {% if completed %}
+      <section class="mb-16">
+        {% with center=false,
+                eyebrow='Готово',
+                eyebrow_icon='badge-check',
+                title='Завершённые',
+                subtitle='Курсы, пройденные на 100 %. Материалы остаются открытыми — возвращайтесь к ним в любой момент.',
+                link=url_for('account.certificates'),
+                link_text=t('acc.certificates') %}
+          {% include 'partials/section_head.html' %}
+        {% endwith %}
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for course, pct in completed %}
+            {% set svc = course.service %}
+            {% set cert = cert_map.get(course.id) %}
+            {% set quiz = course.quiz %}
+            <article class="card card-hover p-5 flex flex-col gap-4 reveal"
+                     data-reveal-delay="{{ loop.index0 % 3 * 60 }}">
+
+              <div class="flex items-start gap-3.5">
+                <span class="grid place-items-center w-11 h-11 rounded-xl flex-none"
+                      style="background:rgba(16,185,129,.12);color:#10B981">
+                  <i data-lucide="badge-check" class="w-5 h-5"></i>
+                </span>
+                <span class="min-w-0 flex-1">
+                  {% if svc %}
+                    <span class="block text-[10px] font-bold uppercase tracking-wider truncate" style="color:var(--ink-4)">
+                      {{ svc.tr('name') }}
+                    </span>
+                  {% endif %}
+                  <h3 class="font-display font-bold text-[15px] leading-snug">{{ course.tr('title') }}</h3>
+                </span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="badge badge-emerald">
+                  <i data-lucide="check" class="w-3 h-3"></i>
+                  {{ t('learn.done') }}
+                </span>
+                {% if cert %}
+                  <span class="badge badge-amber">
+                    <i data-lucide="award" class="w-3 h-3"></i>
+                    {{ cert.code }}
+                  </span>
+                {% endif %}
+              </div>
+
+              {% if cert %}
+                <p class="text-[11px] ink-muted leading-relaxed">
+                  Сертификат выдан {{ cert.issued_at | date_ru }}{% if cert.score %}, результат теста — {{ cert.score }} %{% endif %}.
+                </p>
+              {% elif quiz and quiz.questions and course.certificate_enabled %}
+                <p class="text-[11px] ink-muted leading-relaxed">
+                  Остался последний шаг: пройдите итоговый тест — и сертификат будет ваш.
+                </p>
+              {% else %}
+                <p class="text-[11px] ink-muted leading-relaxed">
+                  Все уроки пройдены. Материалы курса всегда под рукой, если что-то захочется повторить.
+                </p>
+              {% endif %}
+
+              <div class="flex flex-wrap items-center gap-2 mt-auto pt-3 border-t" style="border-color:var(--line)">
+                {% if cert %}
+                  <a href="{{ url_for('learn.certificate', code=cert.code) }}" class="btn btn-soft btn-sm">
+                    <i data-lucide="award"></i>
+                    {{ t('learn.certificate') }}
+                  </a>
+                {% elif quiz and quiz.questions %}
+                  <a href="{{ url_for('learn.quiz', slug=course.slug) }}" class="btn btn-soft btn-sm">
+                    <i data-lucide="clipboard-check"></i>
+                    {{ t('learn.quiz') }}
+                  </a>
+                {% endif %}
+                <a href="{{ url_for('learn.course_overview', slug=course.slug) }}" class="btn btn-ghost btn-sm">
+                  <i data-lucide="rotate-ccw"></i>
+                  Повторить
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {# ══════════════════════ ДОСТУПНЫЕ КУРСЫ ══════════════════════ #}
+    {% if available %}
+      <section>
+        {% with center=false,
+                eyebrow='Что дальше',
+                eyebrow_icon='compass',
+                title='Доступные курсы',
+                subtitle='Эти мини-курсы вы ещё не открывали. Начните с сервиса, которым пользуетесь чаще всего.',
+                link=url_for('public.services'),
+                link_text=t('action.all_services') %}
+          {% include 'partials/section_head.html' %}
+        {% endwith %}
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% for course in available %}
+            {% set svc = course.service %}
+            {% set total_lessons = course.lesson_count or 0 %}
+            {% set outcomes = course.outcome_list()[:2] %}
+            <article class="card card-hover svc-card group relative flex flex-col h-full p-6 reveal"
+                     data-reveal-delay="{{ loop.index0 % 3 * 60 }}"
+                     style="--glow:{{ svc.color if svc else 'var(--brand)' }}">
+
+              <div class="flex items-start justify-between gap-3 mb-5">
+                <span class="svc-icon">
+                  {% if svc and svc.logo %}
+                    <img src="{{ url_for('static', filename=svc.logo) }}" alt="" class="w-8 h-8 object-contain">
+                  {% else %}
+                    <i data-lucide="{{ svc.icon if svc else 'graduation-cap' }}" class="w-6 h-6"></i>
+                  {% endif %}
+                </span>
+                <span class="flex flex-wrap items-center justify-end gap-1.5">
+                  <span class="badge {{ level_badges.get(course.level, 'badge-slate') }}">{{ course.level_label }}</span>
+                  {% if course.certificate_enabled %}
+                    <span class="badge badge-amber"><i data-lucide="award" class="w-3 h-3"></i>{{ t('learn.certificate') }}</span>
+                  {% endif %}
+                </span>
+              </div>
+
+              {% if svc %}
+                <span class="block text-[11px] font-bold uppercase tracking-wider truncate mb-1.5" style="color:var(--ink-4)">
+                  {{ svc.tr('name') }}
+                </span>
+              {% endif %}
+
+              <h3 class="font-display font-bold text-lg leading-snug mb-2 transition-colors group-hover:text-[var(--brand)]">
+                {{ course.tr('title') }}
+              </h3>
+
+              <p class="text-sm ink-muted leading-relaxed">
+                {{ course.tr('summary') | excerpt(120) or 'Короткий курс: шаг за шагом показываем, как пользоваться сервисом.' }}
+              </p>
+
+              {% if outcomes %}
+                <ul class="space-y-2 mt-4 flex-1">
+                  {% for outcome in outcomes %}
+                    <li class="flex items-start gap-2 text-[13px] leading-snug">
+                      <i data-lucide="check" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+                      <span>{{ outcome }}</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <div class="flex-1"></div>
+              {% endif %}
+
+              <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t" style="border-color:var(--line)">
+                <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold" style="color:var(--ink-3)">
+                  <span class="inline-flex items-center gap-1.5">
+                    <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                    {{ total_lessons }} {{ total_lessons | plural('урок', 'урока', 'уроков') }}
+                  </span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                    {{ course.duration_min or 0 }} {{ t('learn.minutes') }}
+                  </span>
+                </span>
+                <a href="{{ url_for('learn.course_overview', slug=course.slug) }}"
+                   class="btn btn-ghost btn-sm before:absolute before:inset-0 before:z-10"
+                   aria-label="Начать курс «{{ course.tr('title') }}»">
+                  <i data-lucide="play"></i>
+                  Начать
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% else %}
+      {# Начаты все курсы, которые есть, — закрывающая подсказка вместо пустой секции #}
+      <section class="card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-5 reveal"
+               style="background:linear-gradient(135deg,var(--brand-50),var(--surface))">
+        <span class="grid place-items-center w-12 h-12 rounded-2xl flex-none"
+              style="background:var(--surface);color:var(--brand)">
+          <i data-lucide="sparkles" class="w-6 h-6"></i>
+        </span>
+        <div class="flex-1 min-w-0">
+          <h2 class="font-display text-lg font-extrabold">Новых курсов пока нет</h2>
+          <p class="text-sm ink-muted mt-1 leading-relaxed">
+            Вы открыли все мини-курсы, которые сейчас опубликованы. Мы регулярно добавляем новые —
+            а пока загляните в каталог сервисов или расскажите, какого курса вам не хватает.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2.5 flex-none">
+          <a href="{{ url_for('public.services') }}" class="btn btn-primary">
+            <i data-lucide="layout-grid"></i>
+            {{ t('action.all_services') }}
+          </a>
+          <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+            <i data-lucide="send"></i>
+            Написать нам
+          </a>
+        </div>
+      </section>
+    {% endif %}
+
+  {% endif %}
+</div>
+{% endblock %}

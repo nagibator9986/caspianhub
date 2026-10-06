@@ -1,0 +1,448 @@
+{% extends 'layouts/admin_base.html' %}
+
+{% block title %}Медиафайлы{% endblock %}
+{% block heading %}Медиафайлы{% endblock %}
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5">Общее хранилище картинок и документов для сервисов, новостей и уроков</p>
+{% endblock %}
+
+{% block actions %}
+  <button type="button" class="btn btn-primary btn-sm" data-media-pick>
+    <i data-lucide="upload"></i><span class="hidden sm:inline">Загрузить</span>
+  </button>
+{% endblock %}
+
+{% block content %}
+{# ── подсчёты для метрик и фильтров ─────────────────────────────────────── #}
+{% set total_count = items | length %}
+{% set images = items | selectattr('is_image') | list %}
+{% set images_count = images | length %}
+{% set docs_count = total_count - images_count %}
+{% set total_bytes = total | int %}
+{% set total_mb = total_bytes / 1048576 %}
+{% set total_kb = total_bytes / 1024 %}
+
+{# ══════════════════ ЗОНА ЗАГРУЗКИ ══════════════════ #}
+<form method="post" enctype="multipart/form-data" action="{{ url_for('admin.media') }}" class="card p-5 sm:p-6 mb-6">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <input type="file" id="media-input" name="files" multiple class="sr-only peer"
+         accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.docx,.xlsx,.pptx">
+
+  <label for="media-input" id="media-drop"
+         class="block w-full cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 sm:py-12 text-center
+                transition-colors border-[var(--line-strong)] bg-[var(--surface-2)]
+                hover:border-[var(--brand)] hover:bg-[var(--brand-50)]
+                peer-focus-visible:border-[var(--brand)] peer-focus-visible:bg-[var(--brand-50)]">
+    <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4 text-white"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2))">
+      <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+    </span>
+    <span class="block font-display font-extrabold text-base">Перетащите файлы или нажмите</span>
+    <span class="block text-sm ink-muted mt-1.5 max-w-md mx-auto">
+      Можно выбрать сразу несколько файлов. Подойдут PNG, JPG, GIF, WEBP, SVG, а также PDF, Word, Excel и презентации.
+    </span>
+    <span id="media-hint" class="inline-flex items-center gap-1.5 text-[11px] mt-4" style="color:var(--ink-4)">
+      <i data-lucide="info" class="w-3.5 h-3.5"></i>Большие изображения мы сами уменьшим до 1920 пикселей по ширине
+    </span>
+  </label>
+
+  {# ── выбранные файлы (заполняется скриптом) ── #}
+  <div id="media-chosen" class="hidden mt-4 rounded-xl border p-4" style="border-color:var(--line);background:var(--surface-2)">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <p class="text-xs font-bold inline-flex items-center gap-1.5">
+        <i data-lucide="paperclip" class="w-3.5 h-3.5" style="color:var(--brand)"></i>
+        Готово к загрузке: <span id="media-chosen-count" class="tabular-nums">0</span>
+      </p>
+      <button type="button" id="media-clear" class="chip !py-1 !px-2.5 !text-[11px]">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>Очистить
+      </button>
+    </div>
+    <div id="media-chosen-list" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5">
+    <p class="text-xs ink-muted inline-flex items-center gap-1.5">
+      <i data-lucide="shield-check" class="w-3.5 h-3.5 flex-none"></i>
+      Файлы попадают в общее хранилище — путь можно скопировать и вставить в любое поле со ссылкой.
+    </p>
+    <button type="submit" class="btn btn-primary btn-sm flex-none">
+      <i data-lucide="upload"></i>Загрузить файлы
+    </button>
+  </div>
+</form>
+
+{# ══════════════════ МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('files', total_count | string, 'файлов всего', 'в медиатеке колледжа', '#EB5A40'),
+    ('image', images_count | string, 'изображений', 'подходят для обложек и карточек', '#10B981'),
+    ('file-text', docs_count | string, 'документов', 'PDF, Word, Excel, презентации', '#0EA5E9'),
+    ('hard-drive', ('%.1f' | format(total_mb)) | replace('.', ','), 'МБ занято',
+     'это примерно ' ~ ('%.0f' | format(total_kb)) ~ ' КБ', '#F59E0B'),
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{% if items %}
+  {# ══════════════════ ПАНЕЛЬ ФИЛЬТРОВ ══════════════════ #}
+  <div class="card p-4 mb-5 flex flex-col lg:flex-row lg:items-center gap-3">
+    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Фильтр по типу файла">
+      <span class="text-[11px] font-extrabold uppercase tracking-[.12em] mr-1" style="color:var(--ink-4)">Тип</span>
+      <button type="button" class="chip is-active" data-media-filter="all" aria-pressed="true">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>Все
+        <span class="tabular-nums" style="color:var(--ink-4)">{{ total_count }}</span>
+      </button>
+      {% if images_count %}
+        <button type="button" class="chip" data-media-filter="image" aria-pressed="false">
+          <i data-lucide="image" class="w-3.5 h-3.5"></i>Изображения
+          <span class="tabular-nums" style="color:var(--ink-4)">{{ images_count }}</span>
+        </button>
+      {% endif %}
+      {% if docs_count %}
+        <button type="button" class="chip" data-media-filter="doc" aria-pressed="false">
+          <i data-lucide="file-text" class="w-3.5 h-3.5"></i>Документы
+          <span class="tabular-nums" style="color:var(--ink-4)">{{ docs_count }}</span>
+        </button>
+      {% endif %}
+    </div>
+
+    <div class="lg:ml-auto flex items-center gap-3 lg:w-80">
+      <label class="label sr-only" for="media-search">Поиск по имени файла</label>
+      <div class="relative flex-1 min-w-0">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+           style="color:var(--ink-4)"></i>
+        <input type="search" id="media-search" class="field !py-2 !pl-9 !text-sm"
+               placeholder="Найти файл по имени" autocomplete="off" data-media-search>
+      </div>
+      <p class="text-xs ink-muted whitespace-nowrap hidden sm:block">
+        <span id="media-visible-count" class="font-semibold tabular-nums" style="color:var(--ink)">{{ total_count }}</span>
+        из {{ total_count }}
+      </p>
+    </div>
+  </div>
+
+  {# ══════════════════ СЕТКА ФАЙЛОВ ══════════════════ #}
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    {% for item in items %}
+      {% set mime = item.mime or '' %}
+      {% set name = item.original_name or item.filename %}
+      {% set ext = (item.filename or '').split('.') | last | upper %}
+      {% set file_url = url_for('static', filename=item.path) %}
+      {% if item.is_image %}
+        {% set icon = 'image' %}
+        {% set tint = '#10B981' %}
+      {% elif 'pdf' in mime %}
+        {% set icon = 'file-text' %}
+        {% set tint = '#EF4444' %}
+      {% elif 'word' in mime or 'document' in mime %}
+        {% set icon = 'file-type' %}
+        {% set tint = '#2563EB' %}
+      {% elif 'sheet' in mime or 'excel' in mime %}
+        {% set icon = 'file-spreadsheet' %}
+        {% set tint = '#059669' %}
+      {% elif 'presentation' in mime or 'slide' in mime %}
+        {% set icon = 'presentation' %}
+        {% set tint = '#F97316' %}
+      {% else %}
+        {% set icon = 'file' %}
+        {% set tint = '#6D6D6B' %}
+      {% endif %}
+
+      <article class="card overflow-hidden flex flex-col" data-media-item
+               data-kind="{{ 'image' if item.is_image else 'doc' }}"
+               data-name="{{ (name ~ ' ' ~ item.filename) | lower }}">
+
+        {# ── квадратное превью ── #}
+        <div class="relative aspect-square border-b" style="border-color:var(--line);background:var(--surface-2)">
+          {% if item.is_image %}
+            <img src="{{ file_url }}" alt="Превью файла «{{ name }}»" loading="lazy"
+                 class="absolute inset-0 w-full h-full object-cover">
+          {% else %}
+            <span class="absolute inset-0 grid place-items-center"
+                  style="background:{{ tint }}12;color:{{ tint }}">
+              <i data-lucide="{{ icon }}" class="w-9 h-9"></i>
+            </span>
+          {% endif %}
+
+          <span class="absolute top-2 left-2 badge badge-slate !px-1.5 !py-0.5 !text-[10px] font-mono">{{ ext }}</span>
+
+          <a href="{{ file_url }}" target="_blank" rel="noopener"
+             class="absolute top-2 right-2 grid place-items-center w-7 h-7 rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+             style="background:color-mix(in srgb,var(--surface) 88%,transparent);border-color:var(--line);color:var(--ink-3)"
+             aria-label="Открыть файл «{{ name }}» в новой вкладке" title="Открыть в новой вкладке">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+
+        {# ── описание ── #}
+        <div class="p-3 flex-1 flex flex-col">
+          <p class="text-xs font-bold truncate" style="color:var(--ink)" title="{{ name }}">{{ name }}</p>
+          <p class="text-[11px] ink-muted mt-1 flex items-center gap-1.5 flex-wrap">
+            <span class="tabular-nums">{{ item.size_human }}</span>
+            <span aria-hidden="true" style="color:var(--ink-4)">·</span>
+            <span class="tabular-nums">{{ item.created_at | dt }}</span>
+          </p>
+
+          {# ── действия ── #}
+          <div class="flex items-center gap-1.5 mt-3 pt-3 border-t" style="border-color:var(--line)">
+            <button type="button" data-copy="{{ file_url }}"
+                    class="btn btn-ghost btn-sm !px-2 !py-1.5 !text-[11px] flex-1 min-w-0"
+                    aria-label="Скопировать путь к файлу «{{ name }}»" title="Скопировать путь {{ file_url }}">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i><span class="truncate">Путь</span>
+            </button>
+
+            <a href="{{ file_url }}" target="_blank" rel="noopener"
+               class="grid place-items-center w-8 h-8 flex-none rounded-lg border transition-colors hover:border-[var(--brand-300)] hover:text-[var(--brand)]"
+               style="border-color:var(--line);color:var(--ink-3)"
+               aria-label="Открыть «{{ name }}»" title="Открыть">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </a>
+
+            <form method="post" action="{{ url_for('admin.media_delete', item_id=item.id) }}" class="flex-none"
+                  data-confirm="Удалить файл «{{ name }}»? Ссылки на него в контенте перестанут работать.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="grid place-items-center w-8 h-8 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                      style="border-color:var(--line);color:var(--ink-3)"
+                      aria-label="Удалить «{{ name }}»" title="Удалить">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+
+  {# ── пусто после фильтра или поиска ── #}
+  <div id="media-filter-empty" class="hidden card p-10 text-center mt-5" aria-live="polite">
+    <span class="grid place-items-center w-14 h-14 rounded-2xl mx-auto mb-4"
+          style="background:var(--surface-2);color:var(--ink-4)">
+      <i data-lucide="filter-x" class="w-6 h-6"></i>
+    </span>
+    <p class="font-display font-extrabold text-base">Ничего не нашлось</p>
+    <p class="text-sm ink-muted mt-1.5 max-w-sm mx-auto">
+      Попробуйте другое название или снимите фильтр — все файлы вернутся в список.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-5">
+      <button type="button" class="btn btn-ghost btn-sm" data-media-reset>
+        <i data-lucide="rotate-ccw"></i>Показать все
+      </button>
+    </div>
+  </div>
+
+{% else %}
+  {# ══════════════════ ПУСТОЕ СОСТОЯНИЕ ══════════════════ #}
+  <div class="card p-10 sm:p-14 text-center">
+    <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+          style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+      <i data-lucide="images" class="w-7 h-7"></i>
+    </span>
+    <h2 class="font-display font-extrabold text-lg">Пока пусто</h2>
+    <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+      Здесь будут все загруженные картинки и документы. Перетащите первые файлы в область выше —
+      после загрузки вы сможете скопировать путь и вставить его в карточку сервиса, новость или урок.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+      <button type="button" class="btn btn-primary btn-sm" data-media-pick>
+        <i data-lucide="upload"></i>Выбрать файлы
+      </button>
+      <a href="{{ url_for('admin.settings') }}" class="btn btn-ghost btn-sm">
+        <i data-lucide="settings-2"></i>Настройки сайта
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ── Зона загрузки: выбор файлов и drag & drop ─────────────────────────── */
+  (function () {
+    var input = document.getElementById('media-input');
+    if (!input) return;
+
+    var zone = document.getElementById('media-drop');
+    var box = document.getElementById('media-chosen');
+    var list = document.getElementById('media-chosen-list');
+    var counter = document.getElementById('media-chosen-count');
+    var clearBtn = document.getElementById('media-clear');
+    var hint = document.getElementById('media-hint');
+    var supportsDT = typeof window.DataTransfer === 'function';
+
+    Array.prototype.slice.call(document.querySelectorAll('[data-media-pick]')).forEach(function (btn) {
+      btn.addEventListener('click', function () { input.click(); });
+    });
+
+    function human(bytes) {
+      var units = ['Б', 'КБ', 'МБ', 'ГБ'];
+      var n = Number(bytes) || 0;
+      var i = 0;
+      while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
+      return (i === 0 ? n.toFixed(0) : n.toFixed(1)) + ' ' + units[i];
+    }
+
+    function render() {
+      var files = input.files ? Array.prototype.slice.call(input.files) : [];
+      if (!box || !list) return;
+      list.innerHTML = '';
+      if (!files.length) {
+        box.classList.add('hidden');
+        if (hint) hint.classList.remove('hidden');
+        return;
+      }
+      box.classList.remove('hidden');
+      if (hint) hint.classList.add('hidden');
+      if (counter) counter.textContent = String(files.length);
+
+      files.forEach(function (file) {
+        var chip = document.createElement('span');
+        chip.className = 'badge badge-slate max-w-full';
+
+        var icon = document.createElement('i');
+        icon.setAttribute('data-lucide', /^image\//.test(file.type) ? 'image' : 'file');
+        icon.className = 'w-3.5 h-3.5';
+
+        var name = document.createElement('span');
+        name.className = 'truncate max-w-[11rem]';
+        name.textContent = file.name;
+
+        var size = document.createElement('span');
+        size.className = 'tabular-nums';
+        size.style.color = 'var(--ink-4)';
+        size.textContent = human(file.size);
+
+        chip.appendChild(icon);
+        chip.appendChild(name);
+        chip.appendChild(size);
+        list.appendChild(chip);
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function highlight(on) {
+      if (!zone) return;
+      zone.style.borderColor = on ? 'var(--brand)' : '';
+      zone.style.background = on ? 'var(--brand-50)' : '';
+    }
+
+    function addFiles(dropped) {
+      if (!dropped || !dropped.length) return;
+      if (!supportsDT) return;
+      var data = new DataTransfer();
+      var seen = {};
+      var push = function (file) {
+        var key = file.name + ':' + file.size;
+        if (seen[key]) return;
+        seen[key] = true;
+        data.items.add(file);
+      };
+      if (input.files) Array.prototype.slice.call(input.files).forEach(push);
+      Array.prototype.slice.call(dropped).forEach(push);
+      input.files = data.files;
+      render();
+    }
+
+    if (zone) {
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        zone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+          highlight(true);
+        });
+      });
+      ['dragleave', 'dragend'].forEach(function (evt) {
+        zone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          highlight(false);
+        });
+      });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        highlight(false);
+        addFiles(e.dataTransfer ? e.dataTransfer.files : null);
+      });
+    }
+
+    input.addEventListener('change', render);
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        input.value = '';
+        render();
+      });
+    }
+
+    render();
+  })();
+
+  /* ── Фильтр по типу и поиск по имени ───────────────────────────────────── */
+  (function () {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('[data-media-item]'));
+    if (!cards.length) return;
+
+    var chips = Array.prototype.slice.call(document.querySelectorAll('.chip[data-media-filter]'));
+    var resets = Array.prototype.slice.call(document.querySelectorAll('[data-media-reset]'));
+    var search = document.querySelector('[data-media-search]');
+    var emptyBox = document.getElementById('media-filter-empty');
+    var counter = document.getElementById('media-visible-count');
+    var kind = 'all';
+
+    function apply() {
+      var query = search ? search.value.trim().toLowerCase() : '';
+      var shown = 0;
+
+      cards.forEach(function (card) {
+        var byKind = kind === 'all' || card.getAttribute('data-kind') === kind;
+        var byName = !query || (card.getAttribute('data-name') || '').indexOf(query) !== -1;
+        var match = byKind && byName;
+        card.classList.toggle('hidden', !match);
+        if (match) shown += 1;
+      });
+
+      chips.forEach(function (chip) {
+        var active = chip.getAttribute('data-media-filter') === kind;
+        chip.classList.toggle('is-active', active);
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+
+      if (counter) counter.textContent = String(shown);
+      if (emptyBox) emptyBox.classList.toggle('hidden', shown !== 0);
+    }
+
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        kind = chip.getAttribute('data-media-filter') || 'all';
+        apply();
+      });
+    });
+
+    resets.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        kind = 'all';
+        if (search) search.value = '';
+        apply();
+      });
+    });
+
+    if (search) search.addEventListener('input', apply);
+
+    apply();
+  })();
+</script>
+{% endblock %}

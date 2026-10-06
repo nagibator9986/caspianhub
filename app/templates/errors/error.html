@@ -1,0 +1,24 @@
+{% extends 'layouts/base.html' %}
+{% block title %}{{ code }} — {{ title }}{% endblock %}
+
+{% block content %}
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="container-hub relative z-10 py-28 text-center">
+    <p class="font-display text-[7rem] sm:text-[10rem] font-extrabold leading-none text-gradient select-none">{{ code }}</p>
+    <h1 class="font-display text-3xl sm:text-4xl font-extrabold mt-2">{{ title }}</h1>
+    <p class="mt-4 text-base ink-muted max-w-md mx-auto">{{ message }}</p>
+    <div class="flex flex-wrap items-center justify-center gap-3 mt-9">
+      <a href="{{ url_for('public.index') }}" class="btn btn-primary magnetic">
+        <i data-lucide="house"></i> На главную
+      </a>
+      <a href="{{ url_for('public.services') }}" class="btn btn-ghost">
+        <i data-lucide="layout-grid"></i> Все сервисы
+      </a>
+      <a href="{{ url_for('public.support') }}" class="btn btn-ghost">
+        <i data-lucide="life-buoy"></i> Написать в поддержку
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}

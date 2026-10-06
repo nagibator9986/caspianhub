@@ -1,0 +1,497 @@
+{% extends 'layouts/admin_base.html' %}
+
+{# ═══════════ Мультиязычное поле с языковыми вкладками ═══════════ #}
+{% macro ml_field(uid, prefix, obj, label, kind='textarea', rows=3, placeholder='', hint='', maxlen=0) %}
+  {% set langs = [('ru', 'Русский', 'основной язык'), ('kk', 'Қазақша', 'перевод'), ('en', 'English', 'перевод')] %}
+  <div data-tabs="lang">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <span class="label !mb-0">{{ label }}</span>
+      <div class="flex items-center gap-1" role="group" aria-label="Язык поля «{{ label }}»">
+        {% for code, title, note in langs %}
+          {% set value = (obj | attr(prefix ~ '_' ~ code)) if obj else '' %}
+          <button type="button" data-tab="{{ code }}"
+                  class="chip !px-2.5 !py-1 !text-[11px] !gap-1.5 {% if loop.first %}is-active{% endif %}"
+                  title="{{ title }} — {{ note }}" aria-label="{{ title }}">
+            {{ code | upper }}
+            <span class="w-1.5 h-1.5 rounded-full" aria-hidden="true"
+                  style="background:{{ 'currentColor' if value else 'var(--line-strong)' }};opacity:{{ '1' if value else '.7' }}"></span>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% for code, title, note in langs %}
+      {% set value = (obj | attr(prefix ~ '_' ~ code)) if obj else '' %}
+      <div data-panel="{{ code }}"{% if not loop.first %} class="hidden"{% endif %}>
+        <label class="sr-only" for="{{ uid }}-{{ prefix }}-{{ code }}">{{ label }} — {{ title }}</label>
+        {% if kind == 'input' %}
+          <input type="text" class="field" id="{{ uid }}-{{ prefix }}-{{ code }}" name="{{ prefix }}_{{ code }}"
+                 value="{{ value or '' }}" placeholder="{{ placeholder }}"
+                 {% if maxlen %}maxlength="{{ maxlen }}"{% endif %} autocomplete="off">
+        {% else %}
+          <textarea class="field" id="{{ uid }}-{{ prefix }}-{{ code }}" name="{{ prefix }}_{{ code }}"
+                    rows="{{ rows }}" placeholder="{{ placeholder }}"
+                    {% if maxlen %}maxlength="{{ maxlen }}"{% endif %}>{{ value or '' }}</textarea>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if hint %}<p class="help">{{ hint }}</p>{% endif %}
+  </div>
+{% endmacro %}
+
+
+{% block title %}Тест курса{% endblock %}
+{% block heading %}Итоговый тест{% endblock %}
+
+{% block subheading %}
+  <p class="text-xs ink-muted mt-0.5 truncate">
+    Курс
+    <a href="{{ url_for('admin.course_edit', course_id=course.id) }}"
+       class="font-semibold hover:underline" style="color:var(--brand)">«{{ course.tr('title') }}»</a>
+    {% if course.service %} · сервис «{{ course.service.tr('name') }}»{% endif %}
+  </p>
+{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('admin.course_edit', course_id=course.id) }}" class="btn btn-ghost btn-sm">
+    <i data-lucide="arrow-left"></i><span class="hidden sm:inline">К курсу</span>
+  </a>
+  {% if quiz and quiz.questions %}
+    <a href="{{ url_for('learn.quiz', slug=course.slug) }}" target="_blank" rel="noopener"
+       class="btn btn-ghost btn-sm">
+      <i data-lucide="external-link"></i><span class="hidden sm:inline">Тест на сайте</span>
+    </a>
+  {% endif %}
+{% endblock %}
+
+
+{% block content %}
+{% set questions = quiz.questions if quiz else [] %}
+{% set question_count = questions | length %}
+{% set attempts = quiz.attempts if quiz else [] %}
+{% set attempt_count = attempts | length %}
+{% set passed_count = attempts | selectattr('passed') | list | length %}
+{% set pass_score = quiz.pass_score if quiz else course.pass_score %}
+{% set limit_value = quiz.time_limit_min if quiz and quiz.time_limit_min else 0 %}
+{% set broken = questions | rejectattr('correct_option') | list | length %}
+
+{# ══════════════════ МИНИ-МЕТРИКИ ══════════════════ #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set metrics = [
+    ('list-checks', question_count, 'вопросов',
+     ('в тесте' if question_count else 'пока ни одного'), '#EB5A40'),
+    ('target', pass_score ~ '%', 'проходной балл',
+     'столько нужно набрать студенту', '#10B981'),
+    ('repeat-2', attempt_count, 'попыток',
+     ((passed_count ~ ' успешных') if attempt_count else 'тест ещё не проходили'), '#0EA5E9'),
+    ('timer', (limit_value if limit_value else '∞'), 'минут на тест',
+     ('таймер включён' if limit_value else 'без ограничения по времени'), '#F59E0B'),
+  ] %}
+  {% for icon, value, label, hint, color in metrics %}
+    <div class="card stat-card p-5" style="--glow:{{ color }}">
+      <span class="grid place-items-center w-10 h-10 rounded-xl mb-4"
+            style="background:{{ color }}1a;color:{{ color }}">
+        <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
+      </span>
+      <p class="font-display text-3xl font-extrabold leading-none tabular-nums">{{ value }}</p>
+      <p class="text-xs font-semibold mt-1.5">{{ label }}</p>
+      <p class="text-[11px] ink-muted mt-0.5">{{ hint }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="grid gap-6 xl:grid-cols-[23rem_minmax(0,1fr)] items-start">
+
+  {# ══════════════════ КОЛОНКА 1 — НАСТРОЙКИ ══════════════════ #}
+  <div class="space-y-6 xl:sticky xl:top-24">
+
+    <form method="post" action="{{ url_for('admin.quiz_edit', course_id=course.id) }}"
+          id="quiz-settings" class="card p-5 sm:p-6 space-y-5">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="flex items-start gap-3">
+        <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+              style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+          <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        </span>
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base leading-tight">Настройки теста</h2>
+          <p class="text-xs ink-muted mt-0.5">
+            {% if quiz %}Название, описание и условия прохождения{% else %}Заполните и сохраните — тест появится у курса{% endif %}
+          </p>
+        </div>
+        {% if not quiz %}
+          <span class="badge badge-amber flex-none ml-auto">Черновик</span>
+        {% endif %}
+      </div>
+
+      {{ ml_field('quiz', 'title', quiz, 'Название теста', kind='input',
+                  placeholder='Итоговый тест', maxlen=200,
+                  hint='Так тест называется для студентов. Если оставить пусто — покажем название на русском.') }}
+
+      {{ ml_field('quiz', 'description', quiz, 'Описание', rows=4,
+                  placeholder='Коротко: что проверяем и сколько вопросов',
+                  hint='Показывается перед началом теста. Пара предложений вполне достаточно.') }}
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label" for="quiz-pass-score">Проходной балл</label>
+          <div class="relative">
+            <input type="number" class="field !pr-9" id="quiz-pass-score" name="pass_score"
+                   value="{{ pass_score }}" min="0" max="100" step="1" required>
+            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold pointer-events-none"
+                  style="color:var(--ink-4)">%</span>
+          </div>
+          <p class="help">Процент верных ответов</p>
+        </div>
+
+        <div>
+          <label class="label" for="quiz-time-limit">Ограничение</label>
+          <div class="relative">
+            <input type="number" class="field !pr-14" id="quiz-time-limit" name="time_limit_min"
+                   value="{{ limit_value }}" min="0" max="600" step="1" required>
+            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold pointer-events-none"
+                  style="color:var(--ink-4)">мин</span>
+          </div>
+          <p class="help">0 — без ограничения</p>
+        </div>
+      </div>
+
+      <div class="pt-1 flex flex-wrap items-center gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i data-lucide="{{ 'save' if quiz else 'plus' }}"></i>{{ 'Сохранить настройки' if quiz else 'Создать тест' }}
+        </button>
+        {% if quiz %}
+          <a href="#new-question" class="btn btn-ghost btn-sm">
+            <i data-lucide="file-plus-2"></i>Новый вопрос
+          </a>
+        {% endif %}
+      </div>
+    </form>
+
+    {# ── памятка ── #}
+    <div class="card p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="lightbulb" class="w-4 h-4" style="color:var(--brand)"></i>
+        <h3 class="font-display font-bold text-sm">Как это работает</h3>
+      </div>
+      <ul class="space-y-2.5 text-xs ink-muted">
+        {% set tips = [
+          'Результат считается как процент верных ответов: набрал проходной балл — тест пройден.',
+          'Пояснение к вопросу студент увидит после отправки ответов — объясните им ошибку.',
+          'Сертификат выдаётся, когда пройдены все уроки и успешно сдан тест.',
+          'Порядок вопросов меняется перетаскиванием за ручку слева и сохраняется сразу.',
+        ] %}
+        {% for tip in tips %}
+          <li class="flex items-start gap-2">
+            <i data-lucide="circle-check" class="w-3.5 h-3.5 flex-none mt-0.5" style="color:var(--brand)"></i>
+            <span>{{ tip }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if course.certificate_enabled %}
+        <p class="help mt-4 flex items-start gap-1.5">
+          <i data-lucide="badge-check" class="w-3.5 h-3.5 flex-none mt-px" style="color:#10B981"></i>
+          <span>У курса включена выдача сертификата — тест напрямую влияет на него.</span>
+        </p>
+      {% else %}
+        <p class="help mt-4 flex items-start gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 flex-none mt-px"></i>
+          <span>Сертификат у этого курса выключен — тест останется просто самопроверкой.</span>
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ══════════════════ КОЛОНКА 2 — ВОПРОСЫ ══════════════════ #}
+  <div class="space-y-5 min-w-0">
+
+    {% if not quiz %}
+      {# ── теста ещё нет ── #}
+      <div class="card p-10 sm:p-14 text-center">
+        <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+              style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff">
+          <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+        </span>
+        <h2 class="font-display font-extrabold text-lg">Тест ещё не создан</h2>
+        <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+          Заполните слева название и условия прохождения — мы создадим тест для курса
+          «{{ course.tr('title') }}», и сразу откроется список вопросов.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-6">
+          <button type="submit" form="quiz-settings" class="btn btn-primary btn-sm">
+            <i data-lucide="plus"></i>Создать тест
+          </button>
+          <a href="{{ url_for('admin.course_edit', course_id=course.id) }}" class="btn btn-ghost btn-sm">
+            <i data-lucide="graduation-cap"></i>Вернуться к урокам
+          </a>
+        </div>
+      </div>
+
+    {% else %}
+      {# ── предупреждения ── #}
+      {% if not question_count %}
+        <div class="card flex items-start gap-3 p-4" style="border-left:3px solid var(--brand)">
+          <i data-lucide="triangle-alert" class="w-5 h-5 flex-none mt-0.5" style="color:var(--brand)"></i>
+          <p class="text-sm">
+            <span class="font-bold">В тесте нет вопросов.</span>
+            <span class="ink-muted">Пока вы не добавите хотя бы один, студенты не смогут его пройти.</span>
+          </p>
+        </div>
+      {% elif broken %}
+        <div class="card flex items-start gap-3 p-4" style="border-left:3px solid #F59E0B">
+          <i data-lucide="triangle-alert" class="w-5 h-5 flex-none mt-0.5" style="color:#F59E0B"></i>
+          <p class="text-sm">
+            <span class="font-bold">{{ broken }} {{ broken | plural('вопрос', 'вопроса', 'вопросов') }} без верного ответа.</span>
+            <span class="ink-muted">Откройте «Изменить» и отметьте правильный вариант — иначе его не засчитают никому.</span>
+          </p>
+        </div>
+      {% endif %}
+
+      {# ── заголовок списка ── #}
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-base">Вопросы</h2>
+          <p class="text-xs ink-muted mt-0.5">
+            {% if question_count %}
+              {{ question_count }} {{ question_count | plural('вопрос', 'вопроса', 'вопросов') }} —
+              потяните за ручку слева, чтобы изменить порядок
+            {% else %}
+              Добавьте первый вопрос в форме ниже
+            {% endif %}
+          </p>
+        </div>
+        {% if question_count %}
+          <a href="#new-question" class="btn btn-ghost btn-sm flex-none">
+            <i data-lucide="plus"></i>Добавить вопрос
+          </a>
+        {% endif %}
+      </div>
+
+      {# ── список вопросов ── #}
+      {% if question_count %}
+        <div class="space-y-4" data-sortable="question">
+          {% for question in questions %}
+            <article class="card p-4 sm:p-5" data-id="{{ question.id }}" x-data="{ open: false }">
+
+              <div class="flex items-start gap-3">
+                <span class="drag-handle grid place-items-center w-8 h-8 rounded-lg flex-none"
+                      title="Перетащите, чтобы изменить порядок"
+                      role="button" tabindex="-1" aria-label="Изменить порядок вопроса {{ loop.index }}">
+                  <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                </span>
+
+                <span class="grid place-items-center w-8 h-8 rounded-lg flex-none text-xs font-extrabold tabular-nums"
+                      style="background:var(--brand-50);color:var(--brand-700)" aria-hidden="true">
+                  {{ loop.index }}
+                </span>
+
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold leading-snug" style="color:var(--ink)">{{ question.tr('text') }}</p>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span class="badge badge-slate !text-[11px] !py-0.5">
+                      <i data-lucide="list-ordered" class="w-3 h-3"></i>
+                      {{ question.options | length }} {{ question.options | length | plural('вариант', 'варианта', 'вариантов') }}
+                    </span>
+                    {% if question.correct_option %}
+                      <span class="badge badge-emerald !text-[11px] !py-0.5">
+                        <i data-lucide="circle-check" class="w-3 h-3"></i>Верный ответ отмечен
+                      </span>
+                    {% else %}
+                      <span class="badge badge-rose !text-[11px] !py-0.5">
+                        <i data-lucide="circle-x" class="w-3 h-3"></i>Верный ответ не отмечен
+                      </span>
+                    {% endif %}
+                    {% if not question.text_kk or not question.text_en %}
+                      <span class="badge badge-amber !text-[11px] !py-0.5">
+                        <i data-lucide="languages" class="w-3 h-3"></i>Переведён не полностью
+                      </span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-none">
+                  <button type="button" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
+                          class="btn btn-ghost btn-sm !px-2.5 sm:!px-3"
+                          aria-label="Изменить вопрос {{ loop.index }}">
+                    <i data-lucide="pencil"></i>
+                    <span class="hidden sm:inline" x-text="open ? 'Свернуть' : 'Изменить'">Изменить</span>
+                  </button>
+
+                  <form method="post" action="{{ url_for('admin.question_delete', question_id=question.id) }}"
+                        data-confirm="Удалить вопрос №{{ loop.index }} вместе с вариантами ответа? Отменить не получится.">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="grid place-items-center w-9 h-9 rounded-lg border transition-colors hover:border-[rgba(244,63,94,.4)] hover:text-[#E11D48]"
+                            style="border-color:var(--line);color:var(--ink-3)"
+                            aria-label="Удалить вопрос {{ loop.index }}" title="Удалить вопрос">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {# ── варианты ответа ── #}
+              {% if question.options %}
+                <ul class="mt-3 sm:ml-[4.75rem] space-y-1.5">
+                  {% for option in question.options %}
+                    <li class="flex items-start gap-2 text-sm">
+                      {% if option.is_correct %}
+                        <i data-lucide="circle-check" class="w-4 h-4 flex-none mt-0.5" style="color:#10B981"></i>
+                        <span class="font-semibold" style="color:var(--ink)">{{ option.tr('text') }}</span>
+                        <span class="badge badge-emerald !text-[10px] !py-0 !px-2 flex-none">верный</span>
+                      {% else %}
+                        <i data-lucide="circle" class="w-4 h-4 flex-none mt-0.5" style="color:var(--ink-4)"></i>
+                        <span class="ink-muted">{{ option.tr('text') }}</span>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="mt-3 sm:ml-[4.75rem] text-xs" style="color:var(--ink-4)">
+                  У вопроса нет вариантов ответа — удалите его и добавьте заново вместе с вариантами.
+                </p>
+              {% endif %}
+
+              {# ── пояснение ── #}
+              {% if question.tr('explanation') %}
+                <div class="mt-3 sm:ml-[4.75rem] flex items-start gap-2 rounded-xl p-3"
+                     style="background:var(--surface-2)">
+                  <i data-lucide="lightbulb" class="w-4 h-4 flex-none mt-0.5" style="color:var(--brand-2)"></i>
+                  <p class="text-xs ink-muted">{{ question.tr('explanation') }}</p>
+                </div>
+              {% endif %}
+
+              {# ── форма редактирования ── #}
+              <div x-show="open" x-collapse x-cloak>
+                <div class="mt-4 pt-4 border-t" style="border-color:var(--line)">
+                  <form method="post" action="{{ url_for('admin.question_update', question_id=question.id) }}"
+                        class="space-y-5">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    {{ ml_field('q' ~ question.id, 'text', question, 'Текст вопроса', rows=3,
+                                placeholder='Например: где посмотреть расписание группы?',
+                                hint='Русский вариант обязателен — остальные языки подхватят его, пока перевода нет.') }}
+
+                    {% if question.options %}
+                      <div>
+                        <span class="label">Варианты ответа</span>
+                        <div class="space-y-2">
+                          {% for option in question.options %}
+                            <div class="flex items-center gap-2.5">
+                              <input type="radio" name="correct" value="{{ option.id }}"
+                                     id="q{{ question.id }}-correct-{{ option.id }}"
+                                     class="w-4 h-4 flex-none cursor-pointer" style="accent-color:var(--brand)"
+                                     {% if option.is_correct %}checked{% endif %}>
+                              <label class="sr-only" for="q{{ question.id }}-correct-{{ option.id }}">
+                                Отметить вариант {{ loop.index }} верным
+                              </label>
+                              <label class="sr-only" for="q{{ question.id }}-option-{{ option.id }}">
+                                Текст варианта {{ loop.index }}
+                              </label>
+                              <input type="text" class="field !py-2.5" id="q{{ question.id }}-option-{{ option.id }}"
+                                     name="option_{{ option.id }}" value="{{ option.text_ru }}"
+                                     maxlength="500" autocomplete="off" placeholder="Вариант {{ loop.index }}">
+                            </div>
+                          {% endfor %}
+                        </div>
+                        <p class="help">
+                          Кружком слева отмечается верный ответ — он может быть только один.
+                          Варианты хранятся на русском и показываются во всех языковых версиях.
+                        </p>
+                      </div>
+                    {% endif %}
+
+                    {{ ml_field('q' ~ question.id, 'explanation', question, 'Пояснение к ответу', rows=3,
+                                placeholder='Почему верен именно этот вариант',
+                                hint='Студент увидит пояснение после проверки — необязательно, но очень помогает.') }}
+
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                      <button type="submit" class="btn btn-primary btn-sm">
+                        <i data-lucide="save"></i>Сохранить вопрос
+                      </button>
+                      <button type="button" class="btn btn-ghost btn-sm" @click="open = false">
+                        Отмена
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+      {% else %}
+        {# ── пустое состояние списка вопросов ── #}
+        <div class="card p-10 sm:p-12 text-center">
+          <span class="grid place-items-center w-16 h-16 rounded-2xl mx-auto mb-5"
+                style="background:var(--surface-2);color:var(--ink-4)">
+            <i data-lucide="list-checks" class="w-7 h-7"></i>
+          </span>
+          <h3 class="font-display font-extrabold text-lg">Пока ни одного вопроса</h3>
+          <p class="text-sm ink-muted mt-2 max-w-md mx-auto">
+            Хороший тест — это 5–10 коротких вопросов по материалу уроков.
+            Добавьте первый прямо в форме ниже: текст, четыре варианта и отметка верного.
+          </p>
+          <a href="#new-question" class="btn btn-primary btn-sm mt-6">
+            <i data-lucide="plus"></i>Добавить вопрос
+          </a>
+        </div>
+      {% endif %}
+
+      {# ── форма добавления вопроса ── #}
+      <form method="post" action="{{ url_for('admin.question_add', quiz_id=quiz.id) }}"
+            id="new-question" class="card p-5 sm:p-6 space-y-5" style="border-color:var(--brand-200)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="flex items-start gap-3">
+          <span class="grid place-items-center w-10 h-10 rounded-xl flex-none"
+                style="background:var(--brand-50);color:var(--brand)">
+            <i data-lucide="file-plus-2" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-bold text-base leading-tight">Новый вопрос</h2>
+            <p class="text-xs ink-muted mt-0.5">Он встанет в конец списка — порядок потом легко поменять</p>
+          </div>
+        </div>
+
+        {{ ml_field('new', 'text', none, 'Текст вопроса', rows=3,
+                    placeholder='Например: как восстановить пароль от личного кабинета?',
+                    hint='Русский вариант обязателен — без него вопрос не сохранится.') }}
+
+        <div>
+          <span class="label">Варианты ответа</span>
+          <div class="space-y-2">
+            {% for i in range(1, 5) %}
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="correct" value="{{ i }}" id="new-correct-{{ i }}"
+                       class="w-4 h-4 flex-none cursor-pointer" style="accent-color:var(--brand)"
+                       {% if i == 1 %}checked{% endif %}>
+                <label class="sr-only" for="new-correct-{{ i }}">Отметить вариант {{ i }} верным</label>
+                <label class="sr-only" for="new-option-{{ i }}">Текст варианта {{ i }}</label>
+                <input type="text" class="field !py-2.5" id="new-option-{{ i }}" name="option{{ i }}"
+                       maxlength="500" autocomplete="off" placeholder="Вариант {{ i }}"
+                       {% if i <= 2 %}required{% endif %}>
+              </div>
+            {% endfor %}
+          </div>
+          <p class="help">
+            Первые два варианта обязательны, остальные — по желанию. Кружком слева отметьте верный ответ.
+          </p>
+        </div>
+
+        {{ ml_field('new', 'explanation', none, 'Пояснение к ответу', rows=3,
+                    placeholder='Короткое объяснение, которое студент увидит после проверки',
+                    hint='Необязательно, но помогает разобраться в ошибке.') }}
+
+        <div class="pt-1">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i data-lucide="plus"></i>Добавить вопрос
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

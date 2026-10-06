@@ -1,0 +1,429 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Регистрация — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}Создайте аккаунт в цифровом хабе Колледжа Каспийского университета: избранные сервисы, мини-курсы с сохранением прогресса и именные сертификаты в одном кабинете.{% endblock %}
+
+{% block content %}
+{% set specialties = [
+  'Маркетинг',
+  'Менеджмент',
+  'Учёт и аудит',
+  'Гостиничный бизнес',
+  'Туризм',
+  'Правоведение',
+  'Переводческое дело',
+  'Программное обеспечение'
+] %}
+{% set perks = [
+  {'icon': 'heart',            'title': 'Избранные сервисы',      'text': 'Отмечайте нужное — и открывайте в один клик с любого устройства.'},
+  {'icon': 'graduation-cap',   'title': 'Мини-курсы с прогрессом','text': 'Возвращайтесь туда, где остановились: прогресс сохраняется сам.'},
+  {'icon': 'award',            'title': 'Именные сертификаты',    'text': 'За пройденный курс — сертификат с кодом, который легко проверить.'},
+  {'icon': 'layout-dashboard', 'title': 'Личный кабинет',         'text': 'Обучение, избранное и ваши данные собраны на одной странице.'}
+] %}
+{% set contact_email = setting('contact_email', 'info@ccu.edu.kz') %}
+
+<section class="relative overflow-hidden grain">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="absolute inset-0 grid-bg opacity-50 pointer-events-none"></div>
+
+  <div class="container-hub relative z-10 pt-8 pb-20 lg:pb-24">
+
+    {# Хлебные крошки #}
+    <nav class="flex items-center gap-2 text-xs mb-8 flex-wrap" aria-label="Хлебные крошки">
+      <a href="{{ url_for('public.index') }}" class="ink-muted hover:text-[var(--brand)] transition-colors">Главная</a>
+      <i data-lucide="chevron-right" class="w-3 h-3" style="color:var(--ink-4)"></i>
+      <span class="font-semibold">{{ t('action.register') }}</span>
+    </nav>
+
+    <div class="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+
+      {# ══════════════════════ ФОРМА — СЛЕВА ══════════════════════ #}
+      <div class="lg:col-span-7">
+
+        <span class="badge badge-brand animate-fade-up">
+          <i data-lucide="user-plus" class="w-3 h-3"></i>
+          Бесплатно, одна минута
+        </span>
+
+        <h1 class="font-display text-3xl sm:text-4xl xl:text-[2.6rem] font-extrabold leading-[1.08] mt-6 animate-fade-up"
+            style="animation-delay:.06s">
+          Создайте аккаунт <span class="text-gradient">студента</span>
+        </h1>
+
+        <p class="mt-4 text-base sm:text-lg ink-muted leading-relaxed max-w-xl animate-fade-up" style="animation-delay:.12s">
+          Заполните короткую анкету — и сервисы колледжа, курсы и сертификаты будут
+          собраны в вашем личном кабинете.
+        </p>
+
+        <div class="card p-6 sm:p-8 shadow-lift mt-8 animate-fade-up" style="animation-delay:.18s">
+
+          <form method="post" action="{{ url_for('auth.register') }}" class="space-y-5" id="register-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            {# ── Имя и почта ───────────────────────────────────── #}
+            <div>
+              <label class="label" for="reg-name">Фамилия и имя <span style="color:var(--brand)">*</span></label>
+              <div class="relative">
+                <i data-lucide="user-round" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11" type="text" id="reg-name" name="full_name"
+                       value="{{ form.get('full_name', '') }}"
+                       required minlength="3" maxlength="160" autocomplete="name"
+                       placeholder="Например, Айгерим Сериккызы"
+                       aria-describedby="reg-name-help">
+              </div>
+              <p class="help" id="reg-name-help">Так вас будут видеть преподаватели и так же имя попадёт в сертификат.</p>
+            </div>
+
+            <div>
+              <label class="label" for="reg-email">Электронная почта <span style="color:var(--brand)">*</span></label>
+              <div class="relative">
+                <i data-lucide="mail" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11" type="email" id="reg-email" name="email"
+                       value="{{ form.get('email', '') }}"
+                       required maxlength="160" autocomplete="email" inputmode="email"
+                       placeholder="you@ccu.edu.kz"
+                       aria-describedby="reg-email-help">
+              </div>
+              <p class="help" id="reg-email-help">Это ваш логин для входа. Подойдёт и личная почта.</p>
+            </div>
+
+            {# ── Группа и специальность ────────────────────────── #}
+            <div class="grid sm:grid-cols-2 gap-5">
+              <div>
+                <label class="label" for="reg-group">Учебная группа</label>
+                <div class="relative">
+                  <i data-lucide="users" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                     style="color:var(--ink-4)"></i>
+                  <input class="field !pl-11" type="text" id="reg-group" name="group_name"
+                         value="{{ form.get('group_name', '') }}"
+                         maxlength="60" autocomplete="off" placeholder="ПО-21"
+                         aria-describedby="reg-group-help">
+                </div>
+                <p class="help" id="reg-group-help">Необязательно — можно указать позже в профиле.</p>
+              </div>
+
+              <div>
+                <label class="label" for="reg-specialty">Специальность</label>
+                <select class="field" id="reg-specialty" name="specialty" aria-describedby="reg-specialty-help">
+                  <option value="">Не выбрана</option>
+                  {% for item in specialties %}
+                    <option value="{{ item }}" {% if form.get('specialty', '') == item %}selected{% endif %}>{{ item }}</option>
+                  {% endfor %}
+                </select>
+                <p class="help" id="reg-specialty-help">Поможем подобрать курсы и сервисы под ваше направление.</p>
+              </div>
+            </div>
+
+            {# ── Пароль ────────────────────────────────────────── #}
+            <div class="pt-1">
+              <label class="label" for="reg-password">Пароль <span style="color:var(--brand)">*</span></label>
+              <div class="relative">
+                <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11 !pr-12" type="password" id="reg-password" name="password"
+                       required minlength="6" maxlength="128" autocomplete="new-password"
+                       placeholder="Придумайте пароль"
+                       data-pwd-main
+                       aria-describedby="reg-password-help reg-strength-label">
+                <button type="button" data-pwd-toggle="reg-password" aria-pressed="false"
+                        aria-label="Показать пароль" title="Показать пароль"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-lg transition-colors hover:text-[var(--brand)]"
+                        style="color:var(--ink-3)">
+                  <span data-pwd-icon="show"><i data-lucide="eye" class="w-4 h-4"></i></span>
+                  <span data-pwd-icon="hide" hidden><i data-lucide="eye-off" class="w-4 h-4"></i></span>
+                </button>
+              </div>
+
+              {# Индикатор силы пароля #}
+              <div class="flex items-center gap-3 mt-3">
+                <div class="flex items-center gap-1.5 flex-1 min-w-0" aria-hidden="true">
+                  <span data-strength-bar class="h-1.5 flex-1 rounded-full transition-colors duration-300" style="background:var(--line-strong)"></span>
+                  <span data-strength-bar class="h-1.5 flex-1 rounded-full transition-colors duration-300" style="background:var(--line-strong)"></span>
+                  <span data-strength-bar class="h-1.5 flex-1 rounded-full transition-colors duration-300" style="background:var(--line-strong)"></span>
+                </div>
+                <span id="reg-strength-label" data-strength-label
+                      class="text-[11px] font-semibold flex-none w-24 text-right"
+                      style="color:var(--ink-4)" aria-live="polite">Пароль пустой</span>
+              </div>
+
+              <p class="help" id="reg-password-help">Минимум 6 символов. Надёжнее, если есть цифры и буквы разного регистра.</p>
+            </div>
+
+            <div>
+              <label class="label" for="reg-password2">Повторите пароль <span style="color:var(--brand)">*</span></label>
+              <div class="relative">
+                <i data-lucide="lock-keyhole" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                   style="color:var(--ink-4)"></i>
+                <input class="field !pl-11 !pr-12" type="password" id="reg-password2" name="password2"
+                       required minlength="6" maxlength="128" autocomplete="new-password"
+                       placeholder="Ещё раз, чтобы не ошибиться"
+                       data-pwd-repeat
+                       aria-describedby="reg-password2-help">
+                <button type="button" data-pwd-toggle="reg-password2" aria-pressed="false"
+                        aria-label="Показать повтор пароля" title="Показать повтор пароля"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-lg transition-colors hover:text-[var(--brand)]"
+                        style="color:var(--ink-3)">
+                  <span data-pwd-icon="show"><i data-lucide="eye" class="w-4 h-4"></i></span>
+                  <span data-pwd-icon="hide" hidden><i data-lucide="eye-off" class="w-4 h-4"></i></span>
+                </button>
+              </div>
+              <p class="help" id="reg-password2-help" data-match-help aria-live="polite">Минимум 6 символов — пароли должны совпадать.</p>
+            </div>
+
+            {# ── Согласие ──────────────────────────────────────── #}
+            <div class="rounded-xl border px-4 py-3.5" style="border-color:var(--line);background:var(--surface-2)">
+              <div class="flex items-start gap-3">
+                <input type="checkbox" id="reg-agree" name="agree" required
+                       class="mt-0.5 w-4 h-4 flex-none rounded cursor-pointer"
+                       style="accent-color:var(--brand)"
+                       aria-describedby="reg-agree-help">
+                <div class="min-w-0">
+                  <label for="reg-agree" class="text-sm leading-relaxed cursor-pointer" style="color:var(--ink-2)">
+                    Я принимаю правила платформы и даю согласие на обработку моих учебных данных.
+                    <span style="color:var(--brand)">*</span>
+                  </label>
+                  <p class="help" id="reg-agree-help">
+                    Данные нужны только для доступа к сервисам и обучению.
+                    <a href="{{ url_for('public.faq') }}" class="font-semibold hover:underline" style="color:var(--brand)">Подробности — в вопросах и ответах</a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {# ── Отправка ──────────────────────────────────────── #}
+            <div class="pt-1 space-y-4">
+              <button type="submit" class="btn btn-primary btn-lg btn-block magnetic">
+                <i data-lucide="user-plus"></i>
+                Создать аккаунт
+              </button>
+
+              <p class="text-xs ink-muted leading-relaxed flex items-start gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 flex-none mt-0.5" style="color:var(--ink-4)"></i>
+                Пароль хранится в зашифрованном виде. Мы не передаём ваши данные третьим лицам.
+              </p>
+            </div>
+          </form>
+        </div>
+
+        {# Вход для тех, у кого аккаунт уже есть #}
+        <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm mt-6 animate-fade-up"
+             style="animation-delay:.24s">
+          <span class="ink-muted">Уже есть аккаунт?</span>
+          <a href="{{ url_for('auth.login') }}" class="font-semibold hover:underline inline-flex items-center gap-1.5"
+             style="color:var(--brand)">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            {{ t('action.login') }}
+          </a>
+        </div>
+      </div>
+
+      {# ══════════════════════ ВИЗУАЛЬНАЯ ПАНЕЛЬ — СПРАВА ══════════════════════ #}
+      <aside class="lg:col-span-5 lg:sticky lg:top-24 space-y-6">
+
+        <div class="relative overflow-hidden rounded-[var(--r-2xl)] grain shadow-hero reveal"
+             style="background:linear-gradient(135deg,var(--brand) 0%,var(--brand-600) 48%,var(--brand-2) 100%)">
+          <div class="absolute inset-0 opacity-25 pointer-events-none"
+               style="background:radial-gradient(circle at 18% 12%,rgba(255,255,255,.55),transparent 44%),radial-gradient(circle at 88% 86%,rgba(255,255,255,.35),transparent 46%)"></div>
+
+          <div class="relative z-10 p-7 sm:p-9 text-white">
+            <span class="badge !border-transparent" style="background:rgba(255,255,255,.18);color:#fff;backdrop-filter:blur(8px)">
+              <span class="pulse-dot"></span>
+              Для студентов колледжа
+            </span>
+
+            <h2 class="font-display text-2xl sm:text-3xl font-extrabold leading-tight mt-5">
+              Присоединяйтесь
+            </h2>
+            <p class="mt-3 text-sm sm:text-base leading-relaxed opacity-90">
+              Аккаунт превращает список ссылок в личное пространство: с прогрессом,
+              избранным и сертификатами.
+            </p>
+
+            <ul class="mt-8 space-y-5 stagger">
+              {% for perk in perks %}
+                <li class="flex items-start gap-4">
+                  <span class="w-10 h-10 flex-none grid place-items-center rounded-xl"
+                        style="background:rgba(255,255,255,.18);backdrop-filter:blur(8px)">
+                    <i data-lucide="{{ perk.icon }}" class="w-5 h-5"></i>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="font-semibold text-[15px] leading-snug">{{ perk.title }}</p>
+                    <p class="text-sm leading-relaxed opacity-85 mt-1">{{ perk.text }}</p>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+
+            <div class="mt-8 pt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs"
+                 style="border-top:1px solid rgba(255,255,255,.22)">
+              <span class="inline-flex items-center gap-1.5 opacity-90">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Бесплатно
+              </span>
+              <span class="inline-flex items-center gap-1.5 opacity-90">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Без привязки карты
+              </span>
+              <span class="inline-flex items-center gap-1.5 opacity-90">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Удаление по запросу
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {# Подсказка о помощи #}
+        <div class="card p-6 shadow-card reveal" data-reveal-delay="90">
+          <div class="flex items-start gap-4">
+            <span class="svc-icon flex-none">
+              <i data-lucide="life-buoy" class="w-5 h-5"></i>
+            </span>
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-[15px] leading-snug">Что-то не получается?</h3>
+              <p class="text-sm ink-muted leading-relaxed mt-1.5">
+                Напишите нам — подскажем, какую почту указать и как восстановить доступ.
+                Отвечаем в течение рабочего дня.
+              </p>
+              <div class="flex flex-wrap items-center gap-2 mt-4">
+                <a href="{{ url_for('public.support') }}" class="btn btn-soft btn-sm">
+                  <i data-lucide="send"></i>
+                  Написать в поддержку
+                </a>
+                <a href="mailto:{{ contact_email }}" class="btn btn-ghost btn-sm">
+                  <i data-lucide="mail"></i>
+                  {{ contact_email }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var form = document.getElementById('register-form');
+    if (!form) return;
+
+    /* ── Кнопки-глаза ───────────────────────────────────────────── */
+    var toggles = Array.prototype.slice.call(form.querySelectorAll('[data-pwd-toggle]'));
+    toggles.forEach(function (btn) {
+      var input = document.getElementById(btn.getAttribute('data-pwd-toggle'));
+      if (!input) return;
+
+      var iconShow = btn.querySelector('[data-pwd-icon="show"]');
+      var iconHide = btn.querySelector('[data-pwd-icon="hide"]');
+
+      btn.addEventListener('click', function () {
+        var visible = input.type === 'text';
+        input.type = visible ? 'password' : 'text';
+        btn.setAttribute('aria-pressed', visible ? 'false' : 'true');
+
+        var label = visible ? 'Показать пароль' : 'Скрыть пароль';
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
+
+        if (iconShow) iconShow.hidden = !visible;
+        if (iconHide) iconHide.hidden = visible;
+      });
+    });
+
+    /* ── Индикатор силы пароля ──────────────────────────────────── */
+    var main = form.querySelector('[data-pwd-main]');
+    var repeat = form.querySelector('[data-pwd-repeat]');
+    var bars = Array.prototype.slice.call(form.querySelectorAll('[data-strength-bar]'));
+    var strengthLabel = form.querySelector('[data-strength-label]');
+    var matchHelp = form.querySelector('[data-match-help]');
+
+    var EMPTY = 'var(--line-strong)';
+    var LEVELS = [
+      { color: '#EF6A4C', text: 'Слабый' },
+      { color: '#F9A03F', text: 'Неплохой' },
+      { color: '#10B981', text: 'Надёжный' }
+    ];
+
+    function score(value) {
+      if (!value) return 0;
+
+      var variety = 0;
+      if (/[a-zа-яё]/.test(value)) variety += 1;
+      if (/[A-ZА-ЯЁ]/.test(value)) variety += 1;
+      if (/[0-9]/.test(value)) variety += 1;
+      if (/[^0-9A-Za-zА-Яа-яЁё]/.test(value)) variety += 1;
+
+      var points = 0;
+      if (value.length >= 6) points += 1;
+      if (value.length >= 10) points += 1;
+      if (value.length >= 14) points += 1;
+      if (variety >= 2) points += 1;
+      if (variety >= 3) points += 1;
+
+      if (value.length < 6) return 1;
+      if (points <= 2) return 1;
+      if (points <= 4) return 2;
+      return 3;
+    }
+
+    function paint(level, value) {
+      bars.forEach(function (bar, index) {
+        bar.style.background = index < level ? LEVELS[level - 1].color : EMPTY;
+      });
+
+      if (!strengthLabel) return;
+
+      if (!value) {
+        strengthLabel.textContent = 'Пароль пустой';
+        strengthLabel.style.color = 'var(--ink-4)';
+        return;
+      }
+      if (value.length < 6) {
+        strengthLabel.textContent = 'Коротко';
+        strengthLabel.style.color = LEVELS[0].color;
+        return;
+      }
+      strengthLabel.textContent = LEVELS[level - 1].text;
+      strengthLabel.style.color = LEVELS[level - 1].color;
+    }
+
+    function checkMatch() {
+      if (!matchHelp || !main || !repeat) return;
+
+      if (!repeat.value) {
+        matchHelp.textContent = 'Минимум 6 символов — пароли должны совпадать.';
+        matchHelp.style.color = 'var(--ink-4)';
+        repeat.setCustomValidity('');
+        return;
+      }
+      if (repeat.value === main.value) {
+        matchHelp.textContent = 'Пароли совпадают.';
+        matchHelp.style.color = LEVELS[2].color;
+        repeat.setCustomValidity('');
+        return;
+      }
+      matchHelp.textContent = 'Пароли пока не совпадают.';
+      matchHelp.style.color = LEVELS[0].color;
+      repeat.setCustomValidity('Пароли не совпадают.');
+    }
+
+    if (main) {
+      main.addEventListener('input', function () {
+        paint(score(main.value), main.value);
+        checkMatch();
+      });
+      paint(score(main.value), main.value);
+    }
+
+    if (repeat) {
+      repeat.addEventListener('input', checkMatch);
+      checkMatch();
+    }
+  })();
+</script>
+{% endblock %}
