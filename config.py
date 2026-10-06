@@ -8,7 +8,16 @@ INSTANCE_DIR.mkdir(exist_ok=True)
 
 
 def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL", f"sqlite:///{INSTANCE_DIR / 'caspianhub.db'}")
+    url = (os.environ.get("DATABASE_URL") or "").strip()
+    if not url and os.environ.get("PGHOST"):
+        # Ссылка на DATABASE_URL не подставилась, но переменные PG* есть — собираем сами
+        env = os.environ.get
+        url = (f"postgresql://{env('PGUSER', 'postgres')}:{env('PGPASSWORD', '')}"
+               f"@{env('PGHOST')}:{env('PGPORT', '5432')}/{env('PGDATABASE', 'railway')}")
+    if not url:
+        if os.environ.get("RAILWAY_ENVIRONMENT"):
+            print("ВНИМАНИЕ: DATABASE_URL пустой — работаю на SQLite, данные пропадут при редеплое.")
+        return f"sqlite:///{INSTANCE_DIR / 'caspianhub.db'}"
     # Railway/Heroku отдают postgres:// — SQLAlchemy 2 понимает только postgresql://
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
