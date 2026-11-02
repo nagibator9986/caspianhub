@@ -1,0 +1,65 @@
+{% extends 'layouts/base.html' %}
+{% from 'partials/page_hero.html' import page_hero with context %}
+{% block title %}{{ t('content.title') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ t('content.lead') }}{% endblock %}
+
+{% block content %}
+{{ page_hero(t('content.title'), t('content.lead'), 'camera') }}
+<section class="pt-8 lg:pt-12 pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="card p-6 sm:p-8 max-w-2xl">
+      <form method="post" enctype="multipart/form-data" class="space-y-5">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div>
+          <label class="label" for="s-kind">Что вы отправляете <span style="color:var(--brand)">*</span></label>
+          <select class="field" id="s-kind" name="kind">
+            {% for key, label in kinds.items() %}<option value="{{ key }}" {{ 'selected' if form.kind == key }}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="label" for="s-description">Описание или идея <span style="color:var(--brand)">*</span></label>
+          <textarea class="field" id="s-description" name="description" rows="5" required minlength="10" maxlength="4000"
+                    placeholder="Что на материале, кто участвует, что хотелось бы снять или улучшить">{{ form.description }}</textarea>
+        </div>
+        <div>
+          <label class="label" for="s-event">Мероприятие</label>
+          <input class="field" id="s-event" name="event_name" maxlength="200" value="{{ form.event_name }}">
+        </div>
+        <div>
+          <label class="label" for="s-files">Файлы</label>
+          <input class="field" id="s-files" type="file" name="files" multiple
+                 accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov" aria-describedby="s-files-help">
+          <p id="s-files-help" class="text-xs ink-muted mt-1.5">До 5 файлов, вместе не больше 16 МБ: фото JPG, PNG, WEBP, HEIC или видео MP4, MOV. Большое видео пришлите ссылкой.</p>
+        </div>
+        <div>
+          <label class="label" for="s-link">Ссылка на видео или папку</label>
+          <input class="field" id="s-link" type="url" name="link_url" maxlength="500" value="{{ form.link_url }}" placeholder="https://">
+        </div>
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label class="label" for="s-name">Имя и фамилия <span style="color:var(--brand)">*</span></label>
+            <input class="field" id="s-name" name="author_name" maxlength="160" required value="{{ form.author_name }}" autocomplete="name">
+          </div>
+          <div>
+            <label class="label" for="s-group">Группа</label>
+            <input class="field" id="s-group" name="author_group" maxlength="60" value="{{ form.author_group }}">
+          </div>
+        </div>
+        <div>
+          <label class="label" for="s-contact">Как с вами связаться <span style="color:var(--brand)">*</span></label>
+          <input class="field" id="s-contact" name="author_contact" maxlength="160" required value="{{ form.author_contact }}" placeholder="Telegram, телефон или почта">
+        </div>
+        <label class="flex items-start gap-3 text-sm leading-relaxed">
+          <input type="checkbox" name="consent" value="1" required class="mt-1">
+          <span>Я автор материалов или у меня есть разрешение на их передачу. Согласен(на), что колледж может опубликовать их в своих соцсетях. Люди в кадре не возражают против публикации.</span>
+        </label>
+        <div class="absolute -left-[9999px]" aria-hidden="true">
+          <label for="s-website">Не заполняйте это поле</label>
+          <input type="text" id="s-website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg"><i data-lucide="send"></i>{{ t('action.send') }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

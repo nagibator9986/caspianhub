@@ -751,3 +751,179 @@ class AuditLog(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, index=True)
 
     user = db.relationship("User")
+
+
+# ─────────────────── Сообщество: соцсети, бонусы, обращения, библиотека, контент ───────────────────
+
+class SocialLink(db.Model, Translatable):
+    __tablename__ = "social_links"
+
+    GROUPS = {"college": "Официальные аккаунты колледжа", "clubs": "Студенческие организации и клубы"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    group = db.Column(db.String(20), nullable=False, default="college")
+    name = db.Column(db.String(120), nullable=False)
+    description_ru = db.Column(db.Text, default="")
+    description_kk = db.Column(db.Text, default="")
+    description_en = db.Column(db.Text, default="")
+    url = db.Column(db.String(500), nullable=False)
+    icon = db.Column(db.String(40), default="at-sign")
+    position = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+
+
+class PartnerOffer(db.Model, Translatable):
+    __tablename__ = "partner_offers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    description_ru = db.Column(db.Text, default="")
+    description_kk = db.Column(db.Text, default="")
+    description_en = db.Column(db.Text, default="")
+    promo_code = db.Column(db.String(120), default="")
+    url = db.Column(db.String(500), nullable=False)
+    icon = db.Column(db.String(40), default="gift")
+    position = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+
+
+class AppealDepartment(db.Model, Translatable):
+    """Адресат обращения. Сами обращения лежат в Feedback: topic = название отдела."""
+
+    __tablename__ = "appeal_departments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    name_ru = db.Column(db.String(60), nullable=False)
+    name_kk = db.Column(db.String(120), default="")
+    name_en = db.Column(db.String(120), default="")
+    description_ru = db.Column(db.Text, default="")
+    description_kk = db.Column(db.Text, default="")
+    description_en = db.Column(db.Text, default="")
+    icon = db.Column(db.String(40), default="building-2")
+    position = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+
+
+class LibraryAsset(db.Model, Translatable):
+    __tablename__ = "library_assets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(80), nullable=False, default="Логотипы колледжа")
+    title_ru = db.Column(db.String(200), nullable=False)
+    title_kk = db.Column(db.String(200), default="")
+    title_en = db.Column(db.String(200), default="")
+    description_ru = db.Column(db.Text, default="")
+    description_kk = db.Column(db.Text, default="")
+    description_en = db.Column(db.Text, default="")
+    path = db.Column(db.String(400), nullable=False)    # относительно app/static
+    download_name = db.Column(db.String(255), default="")
+    size = db.Column(db.Integer, default=0)
+    position = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+    IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+
+    @property
+    def extension(self) -> str:
+        return self.path.rsplit(".", 1)[-1].lower() if "." in self.path else ""
+
+    @property
+    def is_image(self) -> bool:
+        return self.extension in self.IMAGE_EXTENSIONS
+
+    @property
+    def size_human(self) -> str:
+        n = float(self.size or 0)
+        for unit in ("Б", "КБ", "МБ"):
+            if n < 1024:
+                return f"{n:.0f} {unit}" if unit == "Б" else f"{n:.1f} {unit}"
+            n /= 1024
+        return f"{n:.1f} ГБ"
+
+
+class KnowledgeArticle(db.Model, Translatable):
+    """Типовая ситуация: короткий ответ, инструкция и ссылка на нужный раздел."""
+
+    __tablename__ = "knowledge_articles"
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_ru = db.Column(db.String(300), nullable=False)
+    question_kk = db.Column(db.String(300), default="")
+    question_en = db.Column(db.String(300), default="")
+    short_answer_ru = db.Column(db.Text, default="")
+    short_answer_kk = db.Column(db.Text, default="")
+    short_answer_en = db.Column(db.Text, default="")
+    steps_ru = db.Column(db.Text, default="")
+    steps_kk = db.Column(db.Text, default="")
+    steps_en = db.Column(db.Text, default="")
+    keywords = db.Column(db.Text, default="")           # как студенты формулируют вопрос, через запятую
+    link_url = db.Column(db.String(500), default="")
+    link_label_ru = db.Column(db.String(120), default="")
+    link_label_kk = db.Column(db.String(120), default="")
+    link_label_en = db.Column(db.String(120), default="")
+    position = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+
+
+class ContentSubmission(db.Model):
+    __tablename__ = "content_submissions"
+
+    KINDS = {"photo": "Фото", "video": "Видео", "idea": "Идея для ролика", "proposal": "Предложение по соцсетям"}
+    STATUS_LABELS = {"new": "Новый", "reviewing": "На рассмотрении", "approved": "Отобрано",
+                     "published": "Опубликовано", "rejected": "Не подошло"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(20), nullable=False, default="photo")
+    description = db.Column(db.Text, nullable=False)
+    event_name = db.Column(db.String(200), default="")
+    link_url = db.Column(db.String(500), default="")
+    author_name = db.Column(db.String(160), nullable=False)
+    author_group = db.Column(db.String(60), default="")
+    author_contact = db.Column(db.String(160), nullable=False)
+    consent = db.Column(db.Boolean, nullable=False, default=False)
+    status = db.Column(db.String(20), nullable=False, default="new", index=True)
+    admin_note = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, index=True)
+
+    files = db.relationship("SubmissionFile", back_populates="submission", cascade="all, delete-orphan")
+
+    @property
+    def kind_label(self) -> str:
+        return self.KINDS.get(self.kind, self.kind)
+
+    @property
+    def status_label(self) -> str:
+        return self.STATUS_LABELS.get(self.status, self.status)
+
+
+class SubmissionFile(db.Model):
+    __tablename__ = "submission_files"
+
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("content_submissions.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    path = db.Column(db.String(400), nullable=False)
+    original_name = db.Column(db.String(255), default="")
+    size = db.Column(db.Integer, default=0)
+
+    submission = db.relationship("ContentSubmission", back_populates="files")
+
+    @property
+    def is_image(self) -> bool:
+        return self.path.rsplit(".", 1)[-1].lower() in {"jpg", "jpeg", "png", "webp"}
+
+    @property
+    def size_human(self) -> str:
+        n = float(self.size or 0) / 1024
+        return f"{n:.0f} КБ" if n < 1024 else f"{n / 1024:.1f} МБ"
+
+
+class DataPatch(db.Model):
+    """Какие разовые добавления контента уже применены: удалённое админом не вернётся при деплое."""
+
+    __tablename__ = "data_patches"
+
+    key = db.Column(db.String(80), primary_key=True)
+    applied_at = db.Column(db.DateTime(timezone=True), default=utcnow)

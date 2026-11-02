@@ -214,6 +214,15 @@
   </div>
 </section>
 
+{# ══════════════════════ ДЛЯ СТУДЕНТОВ ══════════════════════ #}
+<section class="pb-16 lg:pb-20">
+  <div class="container-hub">
+    <h2 class="font-display text-2xl sm:text-3xl font-extrabold">{{ t('hub.title') }}</h2>
+    <p class="ink-muted mt-2 mb-6 max-w-2xl">{{ t('hub.lead') }}</p>
+    {% include 'partials/student_hub.html' %}
+  </div>
+</section>
+
 {# ══════════════════════ ИЗБРАННЫЕ СЕРВИСЫ ══════════════════════ #}
 <section class="py-20 lg:py-24" style="background:var(--bg-soft)">
   <div class="container-hub">

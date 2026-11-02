@@ -36,6 +36,11 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 МБ
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg", "pdf", "docx", "xlsx", "pptx"}
     ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+    LIBRARY_EXTENSIONS = ALLOWED_EXTENSIONS | {"ai", "eps", "psd", "zip", "ttf", "otf"}
+    # Что можно прислать без входа: только фото и видео, SVG и документы сюда не допускаются.
+    STUDENT_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+    STUDENT_VIDEO_EXTENSIONS = {"mp4", "mov", "heic", "heif"}
+    STUDENT_MAX_FILES = 5
 
     # Сессии
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 24 * 14

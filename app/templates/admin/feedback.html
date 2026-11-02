@@ -45,6 +45,16 @@
     {% endfor %}
   </div>
 
+  {% if topics | length > 1 %}
+    <div class="flex flex-wrap items-center gap-2 mt-3" role="group" aria-label="Фильтр обращений по отделу">
+      <span class="text-[11px] font-extrabold uppercase tracking-[.12em] mr-1" style="color:var(--ink-4)">Отдел</span>
+      <a href="{{ url_for('admin.feedback', status=status) }}" class="chip {{ 'is-active' if not topic }}">Все</a>
+      {% for name, count in topics %}
+        <a href="{{ url_for('admin.feedback', status=status, topic=name) }}" class="chip {{ 'is-active' if topic == name }}">{{ name }} <span class="tabular-nums" style="color:var(--ink-4)">{{ count }}</span></a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <p class="text-[11px] ink-muted mt-3">
     {% if new_count %}
       <i data-lucide="bell-dot" class="w-3.5 h-3.5 inline-block align-[-2px]" style="color:var(--brand)"></i>
@@ -83,7 +93,9 @@
             <p class="font-display font-bold text-base leading-tight truncate">
               {{ item.name or 'Без имени' }}
             </p>
-            {% if item.email %}
+            {% if item.email and '@' not in item.email %}
+              <a href="tel:{{ item.email | replace(' ', '') }}" class="inline-flex items-center gap-1.5 text-xs ink-muted hover:text-[var(--brand)]"><i data-lucide="phone" class="w-3.5 h-3.5 flex-none"></i>{{ item.email }}</a>
+            {% elif item.email %}
               <a href="mailto:{{ item.email }}?subject={{ ('Ответ на обращение — ' ~ (item.topic or 'вопрос')) | urlencode }}"
                  class="inline-flex items-center gap-1.5 text-xs mt-1 transition-colors hover:text-[var(--brand)] break-all"
                  style="color:var(--ink-3)"

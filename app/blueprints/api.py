@@ -38,6 +38,17 @@ def search():
     } for s in services]})
 
 
+@bp.route("/knowledge")
+def knowledge():
+    from .. import knowledge as kb
+    from ..utils import render_markdown
+
+    results = kb.search((request.args.get("q") or "").strip()[:200])
+    return jsonify({"results": [{**row, "answer": str(render_markdown(row["answer"])),
+                                 "steps": str(render_markdown(row["steps"])) if row["steps"] else ""}
+                                for row in results]})
+
+
 @bp.route("/favorite/<int:service_id>", methods=["POST"])
 def toggle_favorite(service_id: int):
     if not current_user.is_authenticated:

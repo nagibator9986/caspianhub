@@ -197,6 +197,17 @@
   <div class="grid lg:grid-cols-12 gap-12">
     <div class="lg:col-span-8 space-y-16">
 
+      {% if service.slug == 'socseti' %}
+        <a href="{{ url_for('public.social') }}" class="card p-5 flex items-center gap-4 mb-8 group">
+          <span class="svc-icon flex-none" aria-hidden="true"><i data-lucide="at-sign" class="w-5 h-5"></i></span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-display font-bold group-hover:text-[var(--brand)] transition-colors">{{ t('social.title') }}</span>
+            <span class="block text-sm ink-muted mt-0.5">{{ t('social.lead') }}</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-5 h-5 flex-none" style="color:var(--ink-4)"></i>
+        </a>
+      {% endif %}
+
       {# ══════════════════════ ОПИСАНИЕ ══════════════════════ #}
       {% if service.tr('description') %}
         <section class="reveal">

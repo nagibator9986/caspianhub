@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "direktor",
+    "icon": "user-round",
+    "name_ru": "Директор колледжа",
+    "name_kk": "Колледж директоры",
+    "name_en": "College director",
+    "description_ru": "Обращения и предложения, адресованные директору колледжа"
+  },
+  {
+    "slug": "uchebnyj-otdel",
+    "icon": "graduation-cap",
+    "name_ru": "Учебный отдел",
+    "name_kk": "Оқу бөлімі",
+    "name_en": "Academic office",
+    "description_ru": "Учебный процесс, расписание, успеваемость"
+  },
+  {
+    "slug": "vospitatelnaya-rabota",
+    "icon": "users",
+    "name_ru": "Отдел воспитательной работы",
+    "name_kk": "Тәрбие жұмысы бөлімі",
+    "name_en": "Student affairs office",
+    "description_ru": "Мероприятия, студенческие инициативы, предложения"
+  },
+  {
+    "slug": "praktika",
+    "icon": "briefcase",
+    "name_ru": "Отдел практики и трудоустройства",
+    "name_kk": "Тәжірибе және жұмысқа орналастыру бөлімі",
+    "name_en": "Internships and careers office",
+    "description_ru": "Стажировки, практика, вакансии"
+  },
+  {
+    "slug": "marketing",
+    "icon": "megaphone",
+    "name_ru": "Отдел маркетинга",
+    "name_kk": "Маркетинг бөлімі",
+    "name_en": "Marketing office",
+    "description_ru": "Идеи, предложения по мероприятиям, контенту и жизни колледжа"
+  },
+  {
+    "slug": "administraciya",
+    "icon": "building-2",
+    "name_ru": "Администрация и другие подразделения",
+    "name_kk": "Әкімшілік және басқа бөлімшелер",
+    "name_en": "Administration and other offices",
+    "description_ru": "Обращения по вопросам, не относящимся к другим отделам"
+  }
+]

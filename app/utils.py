@@ -204,6 +204,45 @@ def save_upload(file_storage, folder: str = "media", images_only: bool = False,
     return rel
 
 
+def store_file(file_storage, folder: str, allowed: set[str]) -> tuple[str, int] | None:
+    """Сохраняет файл как есть, без сжатия: логотипам и контенту важен оригинал."""
+    name = file_storage.filename or ""
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in allowed:
+        return None
+    target_dir: Path = current_app.config["UPLOAD_FOLDER"] / folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stored = f"{uuid.uuid4().hex}.{ext}"
+    full_path = target_dir / stored
+    file_storage.save(full_path)
+    return f"uploads/{folder}/{stored}", full_path.stat().st_size
+
+
+def store_student_file(file_storage) -> tuple[str, int] | None:
+    """Файл из публичной формы: проверяем не только расширение, но и содержимое."""
+    config = current_app.config
+    saved = store_file(file_storage, "student",
+                       config["STUDENT_IMAGE_EXTENSIONS"] | config["STUDENT_VIDEO_EXTENSIONS"])
+    if not saved:
+        return None
+    full_path = config["UPLOAD_FOLDER"].parent / saved[0]
+    if saved[0].rsplit(".", 1)[-1] in config["STUDENT_IMAGE_EXTENSIONS"]:
+        try:
+            from PIL import Image
+
+            with Image.open(full_path) as img:
+                img.verify()
+            return saved
+        except Exception:
+            pass
+    else:
+        with full_path.open("rb") as fh:
+            if fh.read(12)[4:8] == b"ftyp":      # сигнатура контейнеров MP4, MOV и HEIC
+                return saved
+    full_path.unlink(missing_ok=True)
+    return None
+
+
 def delete_upload(rel_path: str | None) -> None:
     if not rel_path or not rel_path.startswith("uploads/"):
         return

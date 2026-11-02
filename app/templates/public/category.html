@@ -84,6 +84,15 @@
   </div>
 </section>
 
+{% if category.slug == 'community' %}
+<section class="pb-10">
+  <div class="container-hub">
+    <h2 class="font-display text-2xl font-extrabold mb-5">{{ t('hub.title') }}</h2>
+    {% include 'partials/student_hub.html' %}
+  </div>
+</section>
+{% endif %}
+
 {# ══════════════════════ ПЕРЕКЛЮЧЕНИЕ КАТЕГОРИЙ ══════════════════════ #}
 {% if categories %}
 <section class="sticky top-[var(--nav-h)] z-40 py-4 border-y backdrop-blur-xl"

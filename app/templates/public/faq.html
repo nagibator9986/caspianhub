@@ -66,7 +66,7 @@
         <label for="faq-search" class="sr-only">Поиск по вопросам и ответам</label>
         <i data-lucide="search" class="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-4)"></i>
         <input id="faq-search" type="search" autocomplete="off" inputmode="search"
-               placeholder="Например: как войти, справка, сертификат"
+               placeholder="Например: где получить справку, пропуск, логотип для проекта"
                aria-describedby="faq-search-status"
                class="field !pl-14 !pr-14 !py-4 !rounded-full !text-base shadow-card">
         <button type="button" id="faq-search-clear" aria-label="Очистить поиск"
@@ -88,6 +88,14 @@
         <span id="faq-search-status" class="font-semibold hidden" aria-live="polite" style="color:var(--brand)"></span>
       </div>
     </div>
+  </div>
+</section>
+
+{# ══════════════════════ УМНЫЙ ПОИСК ══════════════════════ #}
+<section id="kb-panel" class="pt-8 pb-10" hidden>
+  <div class="container-hub">
+    <h2 class="font-display text-2xl font-extrabold mb-5">{{ t('kb.answer') }}</h2>
+    <div id="kb-results" class="space-y-4 max-w-3xl" aria-live="polite" data-steps="{{ t('kb.steps') }}"></div>
   </div>
 </section>
 
@@ -404,5 +412,62 @@
 
     apply();
   })();
+</script>
+<script>
+(function () {
+  var input = document.getElementById('faq-search');
+  var panel = document.getElementById('kb-panel');
+  var box = document.getElementById('kb-results');
+  if (!input || !panel) return;
+  var timer = null, requestId = 0;
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function card(row) {
+    var node = el('article', 'card p-5');
+    node.appendChild(el('h3', 'font-display font-bold text-lg leading-snug', row.title));
+    var answer = el('div', 'prose-hub text-sm mt-2');
+    answer.innerHTML = row.answer;   // очищено на сервере через bleach
+    node.appendChild(answer);
+    if (row.steps) {
+      node.appendChild(el('p', 'text-[11px] font-extrabold uppercase tracking-wider mt-4 mb-1', box.dataset.steps));
+      var steps = el('div', 'prose-hub text-sm');
+      steps.innerHTML = row.steps;
+      node.appendChild(steps);
+    }
+    if (row.url) {
+      var link = el('a', 'btn btn-primary btn-sm mt-4', row.label);
+      link.href = row.url;
+      node.appendChild(link);
+    }
+    return node;
+  }
+  function render(results) {
+    box.replaceChildren();
+    panel.hidden = !results.length;
+    if (!results.length) return;           // пусто: остаётся обычное сообщение страницы
+    results.forEach(function (row) { box.appendChild(card(row)); });
+    // Ответы нашлись, поэтому «совпадений нет» от фильтра списка здесь было бы неправдой.
+    var status = document.getElementById('faq-search-status');
+    var empty = document.getElementById('faq-empty-search');
+    if (status) status.classList.add('hidden');
+    if (empty) empty.classList.add('hidden');
+  }
+  function run() {
+    var q = input.value.trim(), id = ++requestId;
+    if (q.length < 2) { panel.hidden = true; return; }
+    fetch('{{ url_for("api.knowledge") }}?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (body) { if (id === requestId) render(body.results || []); })
+      .catch(function () { panel.hidden = true; });
+  }
+  input.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(run, 250); });
+  var clear = document.getElementById('faq-search-clear');
+  if (clear) clear.addEventListener('click', function () { requestId++; panel.hidden = true; });
+})();
 </script>
 {% endblock %}

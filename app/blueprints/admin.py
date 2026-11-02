@@ -5,21 +5,21 @@ import json
 from collections import Counter
 from datetime import timedelta
 
-from flask import (Blueprint, abort, flash, jsonify, redirect,
+from flask import (Blueprint, abort, current_app, flash, jsonify, redirect,
                    render_template, request, url_for)
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from ..extensions import db
-from ..models import (AuditLog, Category, Certificate, Course, Faq, Feedback,
-                      HomeSection, Lesson, LessonProgress, MediaFile, MenuItem,
-                      Module, News,
-                      Option, Question, Quiz, Service, ServiceEvent,
-                      ServiceFaq, ServiceScreenshot, Setting, Tag,
+from ..models import (AppealDepartment, AuditLog, Category, Certificate, ContentSubmission,
+                      Course, Faq, Feedback, HomeSection, KnowledgeArticle, Lesson,
+                      LessonProgress, LibraryAsset, MediaFile, MenuItem, Module, News,
+                      Option, PartnerOffer, Question, Quiz, Service, ServiceEvent,
+                      ServiceFaq, ServiceScreenshot, Setting, SocialLink, Tag,
                       Testimonial, User, utcnow)
 from ..utils import (clear_settings_cache, delete_upload, form_bool, form_int,
                      log_action, multilang_fields, save_upload, set_setting,
-                     slugify, staff_required, unique_slug)
+                     slugify, staff_required, store_file, unique_slug)
 
 bp = Blueprint("admin", __name__)
 
@@ -775,12 +775,18 @@ def user_delete(user_id: int):
 @bp.route("/feedback")
 def feedback():
     status = request.args.get("status")
+    topic = request.args.get("topic")
     query = Feedback.query
     if status in ("new", "in_progress", "done"):
         query = query.filter_by(status=status)
+    if topic:
+        query = query.filter_by(topic=topic)
     items = query.order_by(Feedback.created_at.desc()).all()
-    counts = Counter(f.status for f in Feedback.query.all())
-    return render_template("admin/feedback.html", items=items, status=status, counts=counts)
+    all_items = Feedback.query.all()
+    counts = Counter(f.status for f in all_items)
+    topics = sorted(Counter(f.topic or "Вопрос" for f in all_items).items())
+    return render_template("admin/feedback.html", items=items, status=status, counts=counts,
+                           topics=topics, topic=topic)
 
 
 @bp.route("/feedback/<int:item_id>", methods=["POST"])
@@ -800,6 +806,219 @@ def feedback_delete(item_id: int):
     db.session.delete(item)
     _commit("Обращение удалено.")
     return redirect(url_for("admin.feedback"))
+
+
+# ═══════════════════════════════ Сообщество ═══════════════════════════════
+
+COMMUNITY = {
+    "social": {
+        "model": SocialLink, "endpoint": "admin.social", "public": "public.social", "reorder": "social",
+        "title": "Соцсети и клубы", "title_field": "name", "badge_field": "group", "badge_labels": SocialLink.GROUPS,
+        "hint": "Аккаунты колледжа и студенческих клубов на странице «Соцсети и клубы»",
+        "fields": [
+            {"name": "name", "label": "Название", "type": "text", "required": True, "max": 120},
+            {"name": "group", "label": "Группа", "type": "select", "options": SocialLink.GROUPS},
+            {"name": "description", "label": "Что там публикуется", "type": "mlarea"},
+            {"name": "url", "label": "Ссылка", "type": "url", "required": True},
+            {"name": "icon", "label": "Значок", "type": "text", "max": 40, "help": "Название значка Lucide, например instagram"},
+        ],
+    },
+    "offers": {
+        "model": PartnerOffer, "endpoint": "admin.offers", "public": "public.bonuses", "reorder": "offer",
+        "title": "Студенческие бонусы", "title_field": "name",
+        "hint": "Предложения партнёров на странице «Студенческие бонусы»",
+        "fields": [
+            {"name": "name", "label": "Партнёр", "type": "text", "required": True, "max": 120},
+            {"name": "description", "label": "Условия (можно Markdown)", "type": "mlarea", "rows": 5},
+            {"name": "promo_code", "label": "Промокод", "type": "text", "max": 120},
+            {"name": "url", "label": "Ссылка на партнёра", "type": "url", "required": True},
+            {"name": "icon", "label": "Значок", "type": "text", "max": 40, "help": "Название значка Lucide, например gift"},
+        ],
+    },
+    "appeals": {
+        "model": AppealDepartment, "endpoint": "admin.appeals", "public": "public.contact", "reorder": "appeal",
+        "title": "Направления обращений", "title_field": "name_ru",
+        "hint": "Отделы в разделе «Связь с администрацией». Письма приходят в «Обращения» с названием отдела",
+        "fields": [
+            {"name": "name", "label": "Отдел или должностное лицо", "type": "ml", "required": True, "max": 60},
+            {"name": "description", "label": "По каким вопросам", "type": "mlarea", "rows": 2},
+            {"name": "icon", "label": "Значок", "type": "text", "max": 40, "help": "Название значка Lucide, например users"},
+        ],
+    },
+    "knowledge": {
+        "model": KnowledgeArticle, "endpoint": "admin.knowledge", "public": "public.faq", "reorder": "knowledge",
+        "title": "База знаний", "title_field": "question_ru",
+        "hint": "Типовые ситуации для умного поиска на странице «Вопросы»",
+        "fields": [
+            {"name": "question", "label": "Вопрос студента", "type": "ml", "required": True},
+            {"name": "short_answer", "label": "Короткий ответ", "type": "mlarea", "rows": 2},
+            {"name": "steps", "label": "Инструкция (можно Markdown)", "type": "mlarea", "rows": 5},
+            {"name": "keywords", "label": "Как ещё спрашивают", "type": "area", "rows": 2,
+             "help": "Слова и фразы через запятую: так поиск находит ответ при других формулировках"},
+            {"name": "link_url", "label": "Ссылка на сервис", "type": "url"},
+            {"name": "link_label", "label": "Подпись ссылки", "type": "ml", "max": 120},
+        ],
+    },
+}
+
+
+def _url_is_safe(value: str) -> bool:
+    return value.startswith("/") and not value.startswith("//") or value.lower().startswith(("https://", "http://"))
+
+
+def _community_page(key: str):
+    config_ = {**COMMUNITY[key], "key": key}
+    model = config_["model"]
+    if request.method == "POST":
+        item_id = request.form.get("id", type=int)
+        item = (db.session.get(model, item_id) or abort(404)) if item_id else model()
+        for field in config_["fields"]:
+            name = field["name"]
+            if field["type"] in ("ml", "mlarea"):
+                _apply_ml(item, name)
+                continue
+            value = (request.form.get(name) or "").strip()
+            if field["type"] == "url" and value and not _url_is_safe(value):
+                flash("Ссылка должна начинаться с https:// или с /.", "danger")
+                return redirect(url_for(config_["endpoint"]))
+            setattr(item, name, value)
+        missing = [f["label"] for f in config_["fields"] if f.get("required") and not (
+            getattr(item, f["name"] + "_ru") if f["type"] in ("ml", "mlarea") else getattr(item, f["name"]))]
+        if missing:
+            db.session.rollback()
+            flash(f"Заполните: {', '.join(missing)}.", "danger")
+            return redirect(url_for(config_["endpoint"]))
+        item.is_active = form_bool("is_active")
+        if not item_id:
+            item.position = model.query.count() + 1
+            if model is AppealDepartment:
+                item.slug = unique_slug(AppealDepartment, item.name_ru)
+            db.session.add(item)
+        db.session.flush()
+        log_action("update" if item_id else "create", key, item.id, str(getattr(item, config_["title_field"])))
+        _commit("Сохранено.")
+        return redirect(url_for(config_["endpoint"]))
+    items = model.query.order_by(model.position, model.id).all()
+    return render_template("admin/community.html", config_=config_, items=items)
+
+
+@bp.route("/social", methods=["GET", "POST"])
+def social():
+    return _community_page("social")
+
+
+@bp.route("/offers", methods=["GET", "POST"])
+def offers():
+    return _community_page("offers")
+
+
+@bp.route("/appeals", methods=["GET", "POST"])
+def appeals():
+    return _community_page("appeals")
+
+
+@bp.route("/knowledge", methods=["GET", "POST"])
+def knowledge():
+    return _community_page("knowledge")
+
+
+@bp.route("/community/<entity>/<int:item_id>/delete", methods=["POST"])
+def community_delete(entity: str, item_id: int):
+    config_ = COMMUNITY.get(entity) or abort(404)
+    item = db.session.get(config_["model"], item_id) or abort(404)
+    log_action("delete", entity, item.id, str(getattr(item, config_["title_field"])))
+    db.session.delete(item)
+    _commit("Удалено.")
+    return redirect(url_for(config_["endpoint"]))
+
+
+@bp.route("/library", methods=["GET", "POST"])
+def library():
+    if request.method == "POST":
+        category = (request.form.get("category") or "").strip()[:80]
+        if not category:
+            flash("Укажите категорию.", "danger")
+            return redirect(url_for("admin.library"))
+        position = LibraryAsset.query.count()
+        added, skipped = 0, []
+        for file in request.files.getlist("files"):
+            if not file or not file.filename:
+                continue
+            saved = store_file(file, "library", current_app.config["LIBRARY_EXTENSIONS"])
+            if not saved:
+                skipped.append(file.filename)
+                continue
+            added += 1
+            db.session.add(LibraryAsset(
+                category=category, title_ru=file.filename.rsplit(".", 1)[0][:200], path=saved[0],
+                download_name=file.filename[:255], size=saved[1], position=position + added, is_active=True,
+            ))
+        if added:
+            log_action("create", "library", None, f"{category}: {added}")
+        _commit(f"Загружено файлов: {added}." if added else "Ничего не загружено.", "success" if added else "danger")
+        if skipped:
+            flash(f"Формат не поддерживается: {', '.join(skipped)}.", "danger")
+        return redirect(url_for("admin.library"))
+    items = LibraryAsset.query.order_by(LibraryAsset.position, LibraryAsset.id).all()
+    categories = sorted({i.category for i in items} | {
+        "Логотипы колледжа", "Логотипы университета", "Логотипы студенческих организаций", "Фирменные графические элементы"})
+    return render_template("admin/library.html", items=items, categories=categories)
+
+
+@bp.route("/library/<int:item_id>", methods=["POST"])
+def library_update(item_id: int):
+    item = db.session.get(LibraryAsset, item_id) or abort(404)
+    item.title_ru = (request.form.get("title_ru") or item.title_ru).strip()[:200]
+    item.category = (request.form.get("category") or item.category).strip()[:80]
+    item.description_ru = (request.form.get("description_ru") or "").strip()
+    item.is_active = form_bool("is_active")
+    _commit("Сохранено.")
+    return redirect(url_for("admin.library"))
+
+
+@bp.route("/library/<int:item_id>/delete", methods=["POST"])
+def library_delete(item_id: int):
+    item = db.session.get(LibraryAsset, item_id) or abort(404)
+    log_action("delete", "library", item.id, item.title_ru)
+    delete_upload(item.path)       # файлы вне uploads/, например логотип из комплекта, остаются
+    db.session.delete(item)
+    _commit("Материал удалён.")
+    return redirect(url_for("admin.library"))
+
+
+@bp.route("/submissions")
+def submissions():
+    status = request.args.get("status")
+    query = ContentSubmission.query
+    if status in ContentSubmission.STATUS_LABELS:
+        query = query.filter_by(status=status)
+    else:
+        status = None
+    items = query.order_by(ContentSubmission.created_at.desc()).all()
+    counts = Counter(s.status for s in ContentSubmission.query.all())
+    return render_template("admin/submissions.html", items=items, status=status, counts=counts,
+                           labels=ContentSubmission.STATUS_LABELS)
+
+
+@bp.route("/submissions/<int:item_id>", methods=["POST"])
+def submission_update(item_id: int):
+    item = db.session.get(ContentSubmission, item_id) or abort(404)
+    if request.form.get("status") in ContentSubmission.STATUS_LABELS:
+        item.status = request.form["status"]
+    item.admin_note = (request.form.get("admin_note") or "").strip()[:2000]
+    _commit("Материал обновлён.")
+    return redirect(url_for("admin.submissions"))
+
+
+@bp.route("/submissions/<int:item_id>/delete", methods=["POST"])
+def submission_delete(item_id: int):
+    item = db.session.get(ContentSubmission, item_id) or abort(404)
+    log_action("delete", "submission", item.id, item.author_name)
+    for file in item.files:
+        delete_upload(file.path)
+    db.session.delete(item)
+    _commit("Материал удалён.")
+    return redirect(url_for("admin.submissions"))
 
 
 # ═══════════════════════════════ Медиа ═══════════════════════════════
@@ -868,6 +1087,8 @@ MODELS_FOR_REORDER = {
     "service": Service, "category": Category, "menu": MenuItem,
     "module": Module, "lesson": Lesson, "faq": Faq,
     "testimonial": Testimonial, "screenshot": ServiceScreenshot,
+    "social": SocialLink, "offer": PartnerOffer, "appeal": AppealDepartment,
+    "knowledge": KnowledgeArticle, "library": LibraryAsset,
     "service_faq": ServiceFaq, "question": Question, "home_section": HomeSection,
 }
 

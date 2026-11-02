@@ -1,15 +1,19 @@
 """Публичная часть: главная, каталог сервисов, страница сервиса, новости, FAQ, поддержка."""
 from __future__ import annotations
 
-from flask import (Blueprint, abort, flash, g, redirect, render_template,
-                   request, url_for)
+import time
+from collections import defaultdict, deque
+
+from flask import (Blueprint, abort, current_app, flash, g, redirect, render_template,
+                   request, send_from_directory, url_for)
 from flask_login import current_user
 from sqlalchemy import or_
 
 from ..extensions import db
-from ..models import (Category, Course, Faq, Feedback, HomeSection, News,
-                      Service, ServiceEvent, Testimonial)
-from ..utils import setting, setting_bool
+from ..models import (AppealDepartment, Category, ContentSubmission, Course, Faq, Feedback,
+                      HomeSection, LibraryAsset, News, PartnerOffer, Service, ServiceEvent,
+                      SocialLink, SubmissionFile, Testimonial)
+from ..utils import delete_upload, setting, setting_bool, store_student_file
 
 bp = Blueprint("public", __name__)
 
@@ -199,6 +203,157 @@ def support():
     return render_template("public/support.html", services=services_list)
 
 
+# ─────────────────── Сообщество ───────────────────
+
+APPEAL_KINDS = ("Вопрос", "Предложение", "Обращение")
+SUBMIT_WINDOW, SUBMIT_LIMIT = 600, 5
+_recent_submits: dict[str, deque] = defaultdict(deque)
+
+
+def _too_many_submits() -> bool:
+    """Защита публичных форм: не больше пяти отправок за десять минут с одного адреса в процессе."""
+    now = time.time()
+    if len(_recent_submits) > 5000:
+        _recent_submits.clear()
+    bucket = _recent_submits[request.remote_addr or "-"]
+    while bucket and now - bucket[0] > SUBMIT_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= SUBMIT_LIMIT:
+        return True
+    bucket.append(now)
+    return False
+
+
+def _clean(name: str, limit: int) -> str:
+    return (request.form.get(name) or "").strip()[:limit]
+
+
+@bp.route("/social")
+def social():
+    items = SocialLink.query.filter_by(is_active=True).order_by(SocialLink.position).all()
+    groups = [(key, label, [i for i in items if i.group == key]) for key, label in SocialLink.GROUPS.items()]
+    return render_template("public/social.html", groups=groups)
+
+
+@bp.route("/bonuses")
+def bonuses():
+    items = PartnerOffer.query.filter_by(is_active=True).order_by(PartnerOffer.position).all()
+    return render_template("public/bonuses.html", items=items)
+
+
+@bp.route("/contact")
+def contact():
+    items = AppealDepartment.query.filter_by(is_active=True).order_by(AppealDepartment.position).all()
+    return render_template("public/contact.html", items=items)
+
+
+@bp.route("/contact/<slug>", methods=["GET", "POST"])
+def contact_form(slug: str):
+    department = AppealDepartment.query.filter_by(slug=slug, is_active=True).first_or_404()
+    form = {"name": "", "group": "", "reach": "", "kind": APPEAL_KINDS[0], "message": ""}
+    if current_user.is_authenticated:
+        form.update(name=current_user.full_name or "", group=current_user.group_name or "",
+                    reach=current_user.email or "")
+
+    if request.method == "POST":
+        form = {"name": _clean("name", 120), "group": _clean("group", 30), "reach": _clean("reach", 160),
+                "kind": _clean("kind", 30), "message": _clean("message", 4000)}
+        if request.form.get("website"):          # honeypot против ботов
+            return redirect(url_for("public.contact"))
+        if not form["name"] or not form["reach"]:
+            flash("Укажите ФИО и контакт, чтобы вам могли ответить.", "danger")
+        elif len(form["message"]) < 10:
+            flash("Опишите вопрос подробнее — минимум 10 символов.", "danger")
+        elif _too_many_submits():
+            flash("Слишком много отправок подряд. Попробуйте через несколько минут.", "danger")
+        else:
+            kind = form["kind"] if form["kind"] in APPEAL_KINDS else APPEAL_KINDS[0]
+            db.session.add(Feedback(
+                name=f"{form['name']} ({form['group']})" if form["group"] else form["name"],
+                email=form["reach"], topic=department.name_ru[:60],
+                message=f"{kind}: {form['message']}",
+            ))
+            db.session.commit()
+            flash(f"Спасибо! Обращение передано: {department.tr('name')}.", "success")
+            return redirect(url_for("public.contact"))
+    return render_template("public/contact_form.html", department=department, form=form, kinds=APPEAL_KINDS)
+
+
+@bp.route("/library")
+def library():
+    items = (LibraryAsset.query.filter_by(is_active=True)
+             .order_by(LibraryAsset.position, LibraryAsset.id).all())
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item.category or "Материалы", []).append(item)
+    return render_template("public/library.html", groups=groups, total=len(items))
+
+
+@bp.route("/library/<int:asset_id>/download")
+def library_download(asset_id: int):
+    item = LibraryAsset.query.filter_by(id=asset_id, is_active=True).first_or_404()
+    return send_from_directory(current_app.static_folder, item.path, as_attachment=True,
+                               download_name=item.download_name or item.path.rsplit("/", 1)[-1])
+
+
+@bp.route("/student-content", methods=["GET", "POST"])
+def student_content():
+    kinds = ContentSubmission.KINDS
+    form = {"kind": "photo", "description": "", "event_name": "", "link_url": "",
+            "author_name": "", "author_group": "", "author_contact": ""}
+    if current_user.is_authenticated:
+        form.update(author_name=current_user.full_name or "", author_group=current_user.group_name or "",
+                    author_contact=current_user.email or "")
+
+    if request.method == "POST":
+        form = {"kind": _clean("kind", 20), "description": _clean("description", 4000),
+                "event_name": _clean("event_name", 200), "link_url": _clean("link_url", 500),
+                "author_name": _clean("author_name", 160), "author_group": _clean("author_group", 60),
+                "author_contact": _clean("author_contact", 160)}
+        if request.form.get("website"):          # honeypot против ботов
+            return redirect(url_for("public.student_content"))
+        uploads = [f for f in request.files.getlist("files") if f and f.filename]
+        link_ok = not form["link_url"] or form["link_url"].lower().startswith(("http://", "https://"))
+        error = None
+        if form["kind"] not in kinds:
+            error = "Выберите, что вы отправляете."
+        elif len(form["description"]) < 10:
+            error = "Опишите материал подробнее — минимум 10 символов."
+        elif not form["author_name"] or not form["author_contact"]:
+            error = "Укажите имя и контакт, чтобы отдел маркетинга мог с вами связаться."
+        elif not link_ok:
+            error = "Ссылка должна начинаться с http:// или https://."
+        elif not request.form.get("consent"):
+            error = "Подтвердите согласие на публикацию материалов."
+        elif len(uploads) > current_app.config["STUDENT_MAX_FILES"]:
+            error = f"Можно прикрепить не больше {current_app.config['STUDENT_MAX_FILES']} файлов."
+        elif _too_many_submits():
+            error = "Слишком много отправок подряд. Попробуйте через несколько минут."
+
+        if not error:
+            stored = []
+            for upload in uploads:
+                saved = store_student_file(upload)
+                if not saved:
+                    for path, _, _ in stored:
+                        delete_upload(path)
+                    error = f"Файл «{upload.filename}» не подходит: нужны фото JPG, PNG, WEBP, HEIC или видео MP4, MOV."
+                    break
+                stored.append((saved[0], saved[1], upload.filename[:255]))
+
+        if error:
+            flash(error, "danger")
+        else:
+            item = ContentSubmission(consent=True, **form)
+            item.files = [SubmissionFile(path=path, size=size, original_name=name) for path, size, name in stored]
+            db.session.add(item)
+            db.session.commit()
+            flash("Спасибо! Материал отправлен в отдел маркетинга. Если он подойдёт, с вами свяжутся.", "success")
+            return redirect(url_for("public.student_content"))
+
+    return render_template("public/student_content.html", form=form, kinds=kinds)
+
+
 @bp.route("/search")
 def search():
     q = (request.args.get("q") or "").strip()
@@ -238,7 +393,12 @@ def sitemap():
             url_for("public.courses", _external=True),
             url_for("public.news", _external=True),
             url_for("public.faq", _external=True),
-            url_for("public.about", _external=True)]
+            url_for("public.about", _external=True),
+            url_for("public.social", _external=True),
+            url_for("public.bonuses", _external=True),
+            url_for("public.contact", _external=True),
+            url_for("public.library", _external=True),
+            url_for("public.student_content", _external=True)]
     urls += [url_for("public.service_detail", slug=s.slug, _external=True)
              for s in _published_services().all()]
     urls += [url_for("public.news_detail", slug=n.slug, _external=True)

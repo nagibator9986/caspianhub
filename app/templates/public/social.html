@@ -1,0 +1,29 @@
+{% extends 'layouts/base.html' %}
+{% from 'partials/page_hero.html' import page_hero with context %}
+{% block title %}{{ t('social.title') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ t('social.lead') }}{% endblock %}
+
+{% block content %}
+{{ page_hero(t('social.title'), t('social.lead'), 'at-sign') }}
+<section class="pt-8 lg:pt-12 pb-20 lg:pb-24">
+  <div class="container-hub space-y-12">
+    {% for key, label, items in groups if items %}
+      <div>
+        <h2 class="font-display text-2xl font-extrabold mb-5">{{ label }}</h2>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for item in items %}
+            <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="card p-5 flex flex-col group">
+              <span class="flex items-center gap-3">
+                <span class="svc-icon flex-none" aria-hidden="true"><i data-lucide="{{ item.icon or 'at-sign' }}" class="w-5 h-5"></i></span>
+                <span class="font-display font-bold leading-snug flex-1 min-w-0 group-hover:text-[var(--brand)] transition-colors">{{ item.name }}</span>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 flex-none" style="color:var(--ink-4)"></i>
+              </span>
+              <span class="block text-sm ink-muted mt-3 leading-relaxed">{{ item.tr('description') }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

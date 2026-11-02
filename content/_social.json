@@ -1,0 +1,128 @@
+[
+  {
+    "group": "college",
+    "name": "Instagram",
+    "icon": "instagram",
+    "description_ru": "Официальная страница колледжа: новости, события, достижения студентов и яркие моменты студенческой жизни.",
+    "url": "https://www.instagram.com/college.caspian?exln=cWMybHIwbzgwbWYz&utm_source=qr"
+  },
+  {
+    "group": "college",
+    "name": "TikTok",
+    "icon": "music-2",
+    "description_ru": "Короткие видео о жизни колледжа, студентах, мероприятиях и том, что происходит за кадром.",
+    "url": "https://www.tiktok.com/@college.caspian?_r=1&_t=ZS-9AXvdAhMq9M"
+  },
+  {
+    "group": "college",
+    "name": "Telegram",
+    "icon": "send",
+    "description_ru": "Важные объявления, актуальные новости и полезная информация для студентов в одном месте.",
+    "url": "https://t.me/college_caspian"
+  },
+  {
+    "group": "college",
+    "name": "Threads",
+    "icon": "at-sign",
+    "description_ru": "Мысли, обсуждения и истории из жизни колледжа. Присоединяйся к общению и делись своим мнением!",
+    "url": "https://www.threads.com/@college.caspian?igshid=NTc4MTIwNjQ2YQ=="
+  },
+  {
+    "group": "college",
+    "name": "YouTube",
+    "icon": "youtube",
+    "description_ru": "Видео с мероприятий, интервью, проекты студентов и знакомство с колледжем.",
+    "url": "https://youtube.com/@caspiancollege?si=IhKOvqCh9X6t13_m"
+  },
+  {
+    "group": "clubs",
+    "name": "Students’ Government",
+    "icon": "vote",
+    "description_ru": "Аккаунт студенческого парламента: инициативы, новости самоуправления и решения, которые помогают студентам участвовать в жизни колледжа.",
+    "url": "https://www.instagram.com/studgov.ccu?psln=MWFuZTFreDU1Z2loag=="
+  },
+  {
+    "group": "clubs",
+    "name": "NewCast",
+    "icon": "megaphone",
+    "description_ru": "Команда студентов при отделе маркетинга: продвижение колледжа, работа с абитуриентами, создание контента и закулисье наших проектов.",
+    "url": "https://www.instagram.com/newcast_ccu?srtk=dzNkZTJkZWlwYjNm"
+  },
+  {
+    "group": "clubs",
+    "name": "Starlight Stage",
+    "icon": "theater",
+    "description_ru": "Театральная жизнь колледжа: постановки, репетиции, тематические вечера и раскрытие актёрских талантов наших студентов.",
+    "url": "https://www.instagram.com/starlight.stage.ccu?rpxt=ZGJzaGl4bjdlbnAw"
+  },
+  {
+    "group": "clubs",
+    "name": "Art Ravens",
+    "icon": "palette",
+    "description_ru": "Мероприятия начинаются с идеи! Здесь - творческие задумки, создание декораций и закулисье подготовки студенческих событий.",
+    "url": "https://www.instagram.com/art_ravens?obrf=MXEyNWs4ZGpjeW16cg=="
+  },
+  {
+    "group": "clubs",
+    "name": "On the scene (OTS)",
+    "icon": "mic",
+    "description_ru": "Танцы, вокал и живая музыка: выступления, репетиции и яркие моменты жизни сценической команды колледжа.",
+    "url": "https://www.instagram.com/onthescenee__?xtok=MTZnZDR2ODF1bTR6aA=="
+  },
+  {
+    "group": "clubs",
+    "name": "Elevate",
+    "icon": "puzzle",
+    "description_ru": "Квесты, загадки и командные приключения. Следи за анонсами, собирай команду и принимай новые вызовы!",
+    "url": "https://www.instagram.com/elevate.caspian?srtk=MXVlcHJva2ZqdGU2OQ=="
+  },
+  {
+    "group": "clubs",
+    "name": "Speak Up",
+    "icon": "message-circle",
+    "description_ru": "Практикуй английский вместе с нами! Дискуссии, дебаты, TED Talks и творческие встречи для живого общения на английском языке.",
+    "url": "https://www.instagram.com/speakupcaspian?rpxt=MW53aDc3MGd6d2JxbA=="
+  },
+  {
+    "group": "clubs",
+    "name": "Арена Мнений",
+    "icon": "landmark",
+    "description_ru": "Место для сильных аргументов и открытых дискуссий. Здесь — анонсы дебатов, встречи клуба и возможность развивать ораторское мастерство.",
+    "url": "https://www.instagram.com/arena.mnenii_?vrfl=cHNncjQ5aGY2a3Nx"
+  },
+  {
+    "group": "clubs",
+    "name": "Casper’s",
+    "icon": "music",
+    "description_ru": "Музыкальный коллектив колледжа: репетиции, выступления и творчество студентов, объединённых общей музыкальной идеей.",
+    "url": "https://www.instagram.com/caspers.off?cplk=MXU1c2VuZzAweWJ6dQ=="
+  },
+  {
+    "group": "clubs",
+    "name": "Caspian Travel",
+    "icon": "plane",
+    "description_ru": "Открывай новые места вместе с нами! Городские туры, прогулки, загородные поездки и впечатления студенческого сообщества путешественников.",
+    "url": "https://www.instagram.com/caspian.travel_ccu?psln=MW10MnowNHdsOWZ0bw=="
+  },
+  {
+    "group": "clubs",
+    "name": "Cyber Caspian",
+    "icon": "gamepad-2",
+    "description_ru": "Киберспортивная жизнь колледжа: тренировки, турниры, командная игра и достижения наших участников на соревнованиях.",
+    "url": "https://www.instagram.com/cyber.caspian?mdxt=bmp4YTZyaTU5Mzcy"
+  },
+  {
+    "group": "clubs",
+    "name": "Blitz",
+    "icon": "dumbbell",
+    "description_ru": "Спорт, движение и командный дух. Здесь - новости секций, спортивные события и возможности для активной жизни в колледже.",
+    "url": "https://www.instagram.com/blitz.caspian?rpxt=MXY0eGgycWJyYTV6dw=="
+  },
+  {
+    "group": "clubs",
+    "name": "Neko club",
+    "icon": "cat",
+    "description_ru": "Помогаем животным вместе: благотворительные ярмарки, поездки в приюты и волонтёрские инициативы, к которым можешь присоединиться и ты.",
+    "url": "https://www.instagram.com/newman.ccu?exln=bDZrbXIybzgycXE4"
+  }
+]

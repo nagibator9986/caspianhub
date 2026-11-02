@@ -36,6 +36,7 @@
             <a href="{{ url_for('public.courses') }}" class="nav-link {% if '/courses' in request.path %}is-active{% endif %}">{{ t('nav.courses') }}</a>
             <a href="{{ url_for('public.news') }}" class="nav-link {% if '/news' in request.path %}is-active{% endif %}">{{ t('nav.news') }}</a>
             <a href="{{ url_for('public.faq') }}" class="nav-link {% if '/faq' in request.path %}is-active{% endif %}">{{ t('nav.faq') }}</a>
+            <a href="{{ url_for('public.category', slug='community') }}" class="nav-link {% if '/category/community' in request.path %}is-active{% endif %}">{{ t('hub.title') }}</a>
             <a href="{{ url_for('public.about') }}" class="nav-link {% if '/about' in request.path %}is-active{% endif %}">{{ t('nav.about') }}</a>
           {% endif %}
         </nav>

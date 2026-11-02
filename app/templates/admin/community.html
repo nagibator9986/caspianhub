@@ -1,0 +1,96 @@
+{% extends 'layouts/admin_base.html' %}
+{% block title %}{{ config_.title }}{% endblock %}
+{% block heading %}{{ config_.title }}{% endblock %}
+{% block subheading %}<p class="text-xs ink-muted mt-0.5">{{ config_.hint }}</p>{% endblock %}
+{% block actions %}
+  <a href="{{ url_for(config_.public) }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i data-lucide="external-link"></i><span class="hidden sm:inline">На сайте</span></a>
+{% endblock %}
+
+{% macro entity_form(item) %}
+  <form method="post" action="{{ url_for(config_.endpoint) }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if item %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
+    {% for f in config_.fields %}
+      {% set uid = (item.id if item else 'new') ~ '-' ~ f.name %}
+      {% if f.type == 'ml' or f.type == 'mlarea' %}
+        <div>
+          <label class="label" for="{{ uid }}">{{ f.label }}{% if f.required %} *{% endif %}</label>
+          {% if f.type == 'ml' %}
+            <input class="field" id="{{ uid }}" name="{{ f.name }}_ru" value="{{ item[f.name ~ '_ru'] if item else '' }}" {{ 'required' if f.required }} maxlength="{{ f.max or 300 }}">
+          {% else %}
+            <textarea class="field" id="{{ uid }}" name="{{ f.name }}_ru" rows="{{ f.rows or 3 }}">{{ item[f.name ~ '_ru'] if item else '' }}</textarea>
+          {% endif %}
+          <details class="mt-2">
+            <summary class="text-xs ink-muted cursor-pointer">Перевод на казахский и английский</summary>
+            <div class="grid sm:grid-cols-2 gap-3 mt-2">
+              {% for lang, name in (('kk', 'Қазақша'), ('en', 'English')) %}
+                <div>
+                  <label class="label" for="{{ uid }}-{{ lang }}">{{ name }}</label>
+                  <textarea class="field" id="{{ uid }}-{{ lang }}" name="{{ f.name }}_{{ lang }}" rows="2">{{ item[f.name ~ '_' ~ lang] if item else '' }}</textarea>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        </div>
+      {% elif f.type == 'select' %}
+        <div>
+          <label class="label" for="{{ uid }}">{{ f.label }}</label>
+          <select class="field" id="{{ uid }}" name="{{ f.name }}">
+            {% for key, label in f.options.items() %}<option value="{{ key }}" {{ 'selected' if item and item[f.name] == key }}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      {% elif f.type == 'area' %}
+        <div>
+          <label class="label" for="{{ uid }}">{{ f.label }}</label>
+          <textarea class="field" id="{{ uid }}" name="{{ f.name }}" rows="{{ f.rows or 3 }}">{{ item[f.name] if item else '' }}</textarea>
+          {% if f.help %}<p class="text-xs ink-muted mt-1">{{ f.help }}</p>{% endif %}
+        </div>
+      {% else %}
+        <div>
+          <label class="label" for="{{ uid }}">{{ f.label }}{% if f.required %} *{% endif %}</label>
+          <input class="field" id="{{ uid }}" name="{{ f.name }}" value="{{ (item[f.name] or '') if item else '' }}" {{ 'required' if f.required }} maxlength="{{ f.max or 500 }}">
+          {% if f.help %}<p class="text-xs ink-muted mt-1">{{ f.help }}</p>{% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {{ 'checked' if not item or item.is_active }}> Показывать на сайте</label>
+    <button class="btn btn-primary btn-sm" type="submit"><i data-lucide="save"></i>Сохранить</button>
+  </form>
+{% endmacro %}
+
+{% block content %}
+<details class="card p-5 mb-6">
+  <summary class="font-display font-bold cursor-pointer">Добавить</summary>
+  <div class="mt-4">{{ entity_form(none) }}</div>
+</details>
+
+<div class="card p-5">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <h2 class="font-display font-bold text-base">Всего: {{ items | length }}</h2>
+    <span class="text-[11px] ink-muted inline-flex items-center gap-1.5"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i>Перетаскивайте, чтобы менять порядок</span>
+  </div>
+  <div data-sortable="{{ config_.reorder }}" class="space-y-2.5">
+    {% for item in items %}
+      <div data-id="{{ item.id }}" class="rounded-xl border p-4" style="border-color:var(--line);background:var(--surface)">
+        <div class="flex items-start gap-3">
+          <span class="drag-handle mt-0.5 flex-none" aria-label="Перетащить"><i data-lucide="grip-vertical" class="w-4 h-4"></i></span>
+          <details class="min-w-0 flex-1">
+            <summary class="cursor-pointer font-semibold text-sm">
+              {{ item[config_.title_field] }}
+              {% if config_.badge_field %}<span class="badge badge-slate ml-1">{{ config_.badge_labels.get(item[config_.badge_field], item[config_.badge_field]) }}</span>{% endif %}
+              {% if not item.is_active %}<span class="badge badge-rose ml-1">Скрыто</span>{% endif %}
+            </summary>
+            <div class="mt-4">{{ entity_form(item) }}</div>
+          </details>
+          <form method="post" action="{{ url_for('admin.community_delete', entity=config_.key, item_id=item.id) }}" data-confirm="Удалить запись? Восстановить её не получится.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost btn-sm" type="submit" aria-label="Удалить"><i data-lucide="trash-2"></i></button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-sm ink-muted">Пока пусто.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

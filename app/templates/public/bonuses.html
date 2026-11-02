@@ -1,0 +1,53 @@
+{% extends 'layouts/base.html' %}
+{% from 'partials/page_hero.html' import page_hero with context %}
+{% block title %}{{ t('bonus.title') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ t('bonus.lead') }}{% endblock %}
+
+{% block content %}
+{{ page_hero(t('bonus.title'), t('bonus.lead'), 'gift') }}
+<section class="pt-8 lg:pt-12 pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="grid md:grid-cols-2 gap-5">
+      {% for item in items %}
+        <article class="card p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="svc-icon flex-none" aria-hidden="true"><i data-lucide="{{ item.icon or 'gift' }}" class="w-5 h-5"></i></span>
+            <h2 class="font-display text-xl font-extrabold leading-snug min-w-0">{{ item.name }}</h2>
+          </div>
+          <div class="prose-hub text-sm flex-1">{{ item.tr('description') | markdown }}</div>
+          {% if item.promo_code %}
+            <div class="mt-4 rounded-xl border p-3" style="border-color:var(--line-strong)">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider mb-1.5" style="color:var(--ink-4)">{{ t('bonus.promo') }}</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <code class="font-bold text-sm flex-1 min-w-0" style="overflow-wrap:anywhere">{{ item.promo_code }}</code>
+                <button type="button" class="btn btn-ghost btn-sm" data-copy="{{ item.promo_code }}" data-copied="{{ t('bonus.copied') }}">
+                  <i data-lucide="copy"></i><span>{{ t('bonus.copy') }}</span>
+                </button>
+              </div>
+            </div>
+          {% endif %}
+          <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary mt-5 self-start">
+            {{ t('bonus.go') }}<i data-lucide="arrow-up-right"></i>
+          </a>
+        </article>
+      {% else %}
+        <p class="ink-muted">Предложения скоро появятся.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('click', function (event) {
+  var button = event.target.closest('[data-copy]');
+  if (!button || !navigator.clipboard) return;
+  navigator.clipboard.writeText(button.dataset.copy).then(function () {
+    var label = button.querySelector('span'), before = label.textContent;
+    label.textContent = button.dataset.copied;
+    setTimeout(function () { label.textContent = before; }, 1800);
+  });
+});
+</script>
+{% endblock %}

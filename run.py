@@ -2,6 +2,7 @@
 import os
 
 from app import create_app
+from app.data_patches import apply_patches
 from app.extensions import db
 
 app = create_app(os.environ.get("FLASK_ENV", "default"))
@@ -16,4 +17,5 @@ def shell_context():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        apply_patches()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

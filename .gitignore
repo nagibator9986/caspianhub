@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Резервные копии сайта
+*-backup-*.tar.gz

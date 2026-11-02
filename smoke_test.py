@@ -30,6 +30,8 @@ def main() -> int:
             f"/category/{cat}", f"/news/{news.slug}", f"/learn/{course.slug}",
             f"/learn/{course.slug}/lesson/{lesson.id}",
             "/api/search?q=практика", "/api/stats", "/robots.txt", "/sitemap.xml",
+            "/social", "/bonuses", "/contact", "/contact/uchebnyj-otdel", "/library",
+            "/student-content", "/api/knowledge?q=справка",
             "/auth/login", "/auth/register", "/?lang=kk", "/?lang=en", "/?lang=ru",
         ]
 
@@ -45,6 +47,8 @@ def main() -> int:
             "/admin/news", "/admin/news/new", f"/admin/news/{news.id}",
             "/admin/faq", "/admin/testimonials", "/admin/menu", "/admin/home",
             "/admin/settings", "/admin/users", f"/admin/users/{user.id}",
+            "/admin/social", "/admin/offers", "/admin/appeals", "/admin/knowledge",
+            "/admin/library", "/admin/submissions",
             "/admin/feedback", "/admin/media", "/admin/analytics", "/admin/log",
         ]
 

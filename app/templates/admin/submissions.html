@@ -1,0 +1,69 @@
+{% extends 'layouts/admin_base.html' %}
+{% block title %}Студенческий контент{% endblock %}
+{% block heading %}Студенческий контент{% endblock %}
+{% block subheading %}<p class="text-xs ink-muted mt-0.5">Что прислали студенты: отбирайте материалы для публикации и связывайтесь с авторами</p>{% endblock %}
+{% block actions %}
+  <a href="{{ url_for('public.student_content') }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i data-lucide="external-link"></i><span class="hidden sm:inline">Форма на сайте</span></a>
+{% endblock %}
+
+{% block content %}
+<div class="card p-4 mb-6 flex flex-wrap gap-2">
+  <a class="chip {{ 'is-active' if not status }}" href="{{ url_for('admin.submissions') }}">Все <span class="tabular-nums" style="color:var(--ink-4)">{{ counts.values() | sum }}</span></a>
+  {% for key, label in labels.items() %}
+    <a class="chip {{ 'is-active' if status == key }}" href="{{ url_for('admin.submissions', status=key) }}">{{ label }} <span class="tabular-nums" style="color:var(--ink-4)">{{ counts[key] }}</span></a>
+  {% endfor %}
+</div>
+
+<div class="space-y-4">
+  {% for item in items %}
+    <article class="card p-5">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="badge badge-brand">{{ item.kind_label }}</span>
+        <span class="badge badge-slate">{{ item.status_label }}</span>
+        <span class="text-xs ink-muted">{{ item.created_at | dt }}</span>
+      </div>
+      <p class="font-semibold text-sm">{{ item.author_name }}{% if item.author_group %} · {{ item.author_group }}{% endif %} · <span style="overflow-wrap:anywhere">{{ item.author_contact }}</span></p>
+      {% if item.event_name %}<p class="text-sm ink-muted mt-1">Мероприятие: {{ item.event_name }}</p>{% endif %}
+      <p class="text-sm mt-3 whitespace-pre-line" style="overflow-wrap:anywhere">{{ item.description }}</p>
+      {% if item.link_url %}<p class="text-sm mt-2" style="overflow-wrap:anywhere"><a class="underline" href="{{ item.link_url }}" target="_blank" rel="noopener noreferrer">{{ item.link_url }}</a></p>{% endif %}
+      {% if item.files %}
+        <div class="flex flex-wrap gap-3 mt-4">
+          {% for file in item.files %}
+            <a href="{{ url_for('static', filename=file.path) }}" target="_blank" rel="noopener" download="{{ file.original_name }}" class="rounded-xl border p-2 w-36 block" style="border-color:var(--line)">
+              {% if file.is_image %}
+                <img src="{{ url_for('static', filename=file.path) }}" alt="" loading="lazy" class="w-full h-24 object-cover rounded-lg">
+              {% else %}
+                <span class="grid place-items-center h-24"><i data-lucide="video" class="w-8 h-8" style="color:var(--ink-4)"></i></span>
+              {% endif %}
+              <span class="block text-[11px] ink-muted mt-1 truncate">{{ file.original_name }}</span>
+              <span class="block text-[11px] ink-muted">{{ file.size_human }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <div class="flex flex-wrap items-end gap-3 mt-4 pt-4 border-t" style="border-color:var(--line)">
+        <form method="post" action="{{ url_for('admin.submission_update', item_id=item.id) }}" class="flex flex-wrap items-end gap-3 flex-1 min-w-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div>
+            <label class="label" for="st-{{ item.id }}">Статус</label>
+            <select class="field" id="st-{{ item.id }}" name="status">
+              {% for key, label in labels.items() %}<option value="{{ key }}" {{ 'selected' if item.status == key }}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="flex-1 min-w-[12rem]">
+            <label class="label" for="nt-{{ item.id }}">Заметка для коллег</label>
+            <input class="field" id="nt-{{ item.id }}" name="admin_note" maxlength="2000" value="{{ item.admin_note or '' }}">
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.submission_delete', item_id=item.id) }}" data-confirm="Удалить материал вместе с файлами? Восстановить его не получится.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-ghost btn-sm" type="submit" aria-label="Удалить"><i data-lucide="trash-2"></i></button>
+        </form>
+      </div>
+    </article>
+  {% else %}
+    <div class="card p-8 text-center text-sm ink-muted">Материалов нет.</div>
+  {% endfor %}
+</div>
+{% endblock %}

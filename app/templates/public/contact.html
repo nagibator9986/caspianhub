@@ -1,0 +1,27 @@
+{% extends 'layouts/base.html' %}
+{% from 'partials/page_hero.html' import page_hero with context %}
+{% block title %}{{ t('contact.title') }} — {{ setting('site_name', 'Caspian College Hub') }}{% endblock %}
+{% block description %}{{ t('contact.lead') }}{% endblock %}
+
+{% block content %}
+{{ page_hero(t('contact.title'), t('contact.lead'), 'mail') }}
+<section class="pt-8 lg:pt-12 pb-20 lg:pb-24">
+  <div class="container-hub">
+    <div class="card max-w-2xl divide-y" style="--tw-divide-opacity:1;border-color:var(--line)">
+      {% for item in items %}
+        <a href="{{ url_for('public.contact_form', slug=item.slug) }}"
+           class="flex items-center gap-4 p-5 group transition-colors hover:bg-[var(--brand-50)]" style="border-color:var(--line)">
+          <span class="svc-icon flex-none" aria-hidden="true"><i data-lucide="{{ item.icon or 'building-2' }}" class="w-5 h-5"></i></span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-display font-bold leading-snug group-hover:text-[var(--brand)] transition-colors">{{ item.tr('name') }}</span>
+            <span class="block text-sm ink-muted mt-0.5 leading-relaxed">{{ item.tr('description') }}</span>
+          </span>
+          <i data-lucide="chevron-right" class="w-5 h-5 flex-none" style="color:var(--ink-4)"></i>
+        </a>
+      {% else %}
+        <p class="p-6 ink-muted">Направления скоро появятся. Пока можно написать через <a class="underline" href="{{ url_for('public.support') }}">поддержку</a>.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

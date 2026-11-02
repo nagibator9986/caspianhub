@@ -9,6 +9,7 @@ import json
 from datetime import timedelta
 from pathlib import Path
 
+from app.data_patches import apply_patches
 from app.extensions import db
 from app.models import (Category, Course, Faq, HomeSection, Lesson, MenuItem,
                         Module, News, Option, Question, Quiz, Service,
@@ -418,6 +419,7 @@ def run_seed() -> None:
     seed_faq()
     seed_testimonials()
     apply_site_copy()
+    apply_patches()
 
     print(f"  категорий:  {Category.query.count()}")
     print(f"  сервисов:   {Service.query.count()}")
